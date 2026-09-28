@@ -7,15 +7,17 @@ import com.fhict.campaignmanager.mapper.UserMapper;
 import com.fhict.campaignmanager.security.JwtService;
 import com.fhict.campaignmanager.service.AuthService;
 import com.fhict.campaignmanager.service.IUserService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,10 +27,12 @@ class AuthServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtService jwtService;
 
-    private final UserMapper userMapper = new UserMapper();
-
-    @InjectMocks
     private AuthService authService;
+
+    @BeforeEach
+    void setUp() {
+        authService = new AuthService(userService, passwordEncoder, jwtService, new UserMapper());
+    }
 
     @Test
     void login_withValidCredentials_returnsLoginResponse() {
@@ -38,7 +42,6 @@ class AuthServiceTest {
                 .email("robin@example.com")
                 .password("$2a$10$storedEncodedPassword")
                 .build();
-
         LoginRequest request = LoginRequest.builder()
                 .username("robin")
                 .password("plainPassword")
@@ -54,25 +57,27 @@ class AuthServiceTest {
         assertNotNull(result);
         assertEquals("test-jwt", result.getAccessToken());
         assertEquals("Bearer", result.getTokenType());
+        assertEquals(3600L, result.getExpiresIn());
         assertEquals("robin", result.getUser().getUsername());
+        verify(jwtService).createToken("robin");
     }
 
-    void login_withInvalidCredentials_returnsUnauthorized() {
-        User user = User.builder()
-                .id(1)
-                .username("robin")
-                .email("robin@example.com")
-                .password("$2a$10$storedEncodedPassword")
-                .build();
-
-        LoginRequest request = LoginRequest.builder()
-                .username("robin")
-                .password("wrongPassword")
-                .build();
+    @Test
+    void login_withInvalidPassword_returnsNull() {
+        User user = User.builder().username("robin").password("encoded-password").build();
+        LoginRequest request = LoginRequest.builder().username("robin").password("wrongPassword").build();
 
         when(userService.getUserByUsername("robin")).thenReturn(user);
-        when(passwordEncoder.matches("wrongPassword", user.getPassword())).thenReturn(false);
+        when(passwordEncoder.matches("wrongPassword", "encoded-password")).thenReturn(false);
 
-        //TODO : Implement exception handling in AuthService and test for UnauthorizedException
+        assertNull(authService.login(request));
+    }
+
+    @Test
+    void login_withUnknownUsername_returnsNull() {
+        LoginRequest request = LoginRequest.builder().username("unknown").password("password").build();
+        when(userService.getUserByUsername("unknown")).thenReturn(null);
+
+        assertNull(authService.login(request));
     }
 }
