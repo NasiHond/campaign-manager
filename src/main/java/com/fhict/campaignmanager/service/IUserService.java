@@ -13,6 +13,8 @@ public interface IUserService
 
     User getUserByUsername(String username);
 
+    User getUserByEmail(String email);
+
     UserResponse updateUser(int id, UpdateUserRequest updateUserRequest);
 
     void deleteUser(int id);

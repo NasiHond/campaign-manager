@@ -35,6 +35,14 @@ public class InMemoryUserRepository implements UserRepository {
     }
 
     @Override
+    public User findByEmail(String email) {
+        return users.values().stream()
+                .filter(user -> user.getEmail().equals(email))
+                .findFirst()
+                .orElse(null);
+    }
+
+    @Override
     public User update(User user) {
         if (user.getId() == 0 || !users.containsKey(user.getId())) {
             throw new IllegalArgumentException("User does not exist");

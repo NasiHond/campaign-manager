@@ -46,6 +46,11 @@ public class UserService implements IUserService
     }
 
     @Override
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
+    @Override
     public UserResponse updateUser(int id, UpdateUserRequest updateUserRequest) {
         User user = userRepository.findById(id);
         if (user != null)

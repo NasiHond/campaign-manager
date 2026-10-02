@@ -124,4 +124,33 @@ class UserServiceTest {
 
         verify(userRepository).delete(1);
     }
+
+    @Test
+    void getUserByUsername_delegatesToRepository() {
+        User expected = User.builder().username("NasiHond").build();
+        when(userRepository.findByUsername("NasiHond")).thenReturn(expected);
+
+        assertEquals(expected, userService.getUserByUsername("NasiHond"));
+        verify(userRepository).findByUsername("NasiHond");
+    }
+
+    @Test
+    void getUserByEmail_delegatesToRepository() {
+        User expected = User.builder().email("test@mail.com").build();
+        when(userRepository.findByEmail("test@mail.com")).thenReturn(expected);
+
+        assertEquals(expected, userService.getUserByEmail("test@mail.com"));
+        verify(userRepository).findByEmail("test@mail.com");
+    }
+
+    @Test
+    void updateUser_returnsNullWhenUserDoesNotExist() {
+        when(userRepository.findById(99)).thenReturn(null);
+
+        assertNull(userService.updateUser(99, UpdateUserRequest.builder()
+                .username("new-name")
+                .email("new@mail.com")
+                .build()));
+        verify(userRepository, never()).update(any());
+    }
 }
