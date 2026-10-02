@@ -1,10 +1,14 @@
 package com.fhict.campaignmanager.repository;
 
 import com.fhict.campaignmanager.domain.Campaign;
+import com.fhict.campaignmanager.domain.User;
+import org.springframework.stereotype.Repository;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+@Repository
 public class InMemoryCampaignRepository implements CampaignRepository {
 
     private final Map<Integer, Campaign> campaigns = new HashMap<>();
@@ -24,6 +28,13 @@ public class InMemoryCampaignRepository implements CampaignRepository {
     @Override
     public Campaign findById(int id) {
         return campaigns.get(id);
+    }
+
+    @Override
+    public List<Campaign> findAllByParticipantsContainingKey(User user) {
+        return campaigns.values().stream()
+                .filter(campaign -> campaign.getParticipants().containsKey(user))
+                .toList();
     }
 
     @Override

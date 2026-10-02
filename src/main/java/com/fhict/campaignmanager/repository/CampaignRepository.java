@@ -1,6 +1,9 @@
 package com.fhict.campaignmanager.repository;
 
 import com.fhict.campaignmanager.domain.Campaign;
+import com.fhict.campaignmanager.domain.User;
+
+import java.util.List;
 
 public interface CampaignRepository {
     Campaign save(Campaign campaign);
@@ -10,4 +13,6 @@ public interface CampaignRepository {
     Campaign update(Campaign campaign);
 
     void delete(int id);
+
+    List<Campaign> findAllByParticipantsContainingKey(User user);
 }
