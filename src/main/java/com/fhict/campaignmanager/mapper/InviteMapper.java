@@ -2,7 +2,9 @@ package com.fhict.campaignmanager.mapper;
 
 import com.fhict.campaignmanager.domain.CampaignInvitation;
 import com.fhict.campaignmanager.dto.InviteResponse;
+import org.springframework.stereotype.Service;
 
+@Service
 public class InviteMapper {
     public InviteResponse toInviteResponse(CampaignInvitation campaignInvitation) {
         if (campaignInvitation == null) {
