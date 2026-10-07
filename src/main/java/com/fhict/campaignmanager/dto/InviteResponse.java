@@ -4,6 +4,8 @@ import com.fhict.campaignmanager.domain.InvitationStatus;
 import com.fhict.campaignmanager.domain.Role;
 import lombok.*;
 
+import java.time.Instant;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,4 +18,5 @@ public class InviteResponse {
     private UserResponse invitedUser;
     private Role role;
     private InvitationStatus invitationStatus;
+    private Instant expiresAt;
 }
