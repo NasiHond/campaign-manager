@@ -18,6 +18,7 @@ public class InviteMapper {
                 .invitedUser(new UserMapper().toUserResponse(campaignInvitation.getInvitedUser()))
                 .role(campaignInvitation.getRole())
                 .invitationStatus(campaignInvitation.getStatus())
+                .expiresAt(campaignInvitation.getExpiresAt())
                 .build();
     }
 }

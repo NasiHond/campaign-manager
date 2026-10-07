@@ -16,6 +16,13 @@ public class CampaignMapper {
                 .name(campaign.getName())
                 .description(campaign.getDescription())
                 .participants(campaign.getParticipants())
+                .ownerId(campaign.getParticipants() == null
+                        ? null
+                        : campaign.getParticipants().entrySet().stream()
+                        .filter(entry -> entry.getValue() == com.fhict.campaignmanager.domain.Role.OWNER)
+                        .map(entry -> entry.getKey().getId())
+                        .findFirst()
+                        .orElse(null))
                 .build();
     }
 }

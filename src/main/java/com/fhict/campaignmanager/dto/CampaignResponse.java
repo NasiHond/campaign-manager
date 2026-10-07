@@ -5,6 +5,7 @@ import com.fhict.campaignmanager.domain.User;
 import lombok.*;
 
 import java.util.Map;
+import java.util.List;
 
 @Getter
 @Setter
@@ -16,4 +17,6 @@ public class CampaignResponse {
     private String name;
     private String description;
     private Map<User, Role> participants;
+    private Integer ownerId;
+    private List<InviteResponse> invites;
 }

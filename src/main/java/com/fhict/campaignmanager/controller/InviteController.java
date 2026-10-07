@@ -1,5 +1,6 @@
 package com.fhict.campaignmanager.controller;
 
+import com.fhict.campaignmanager.dto.CreateInviteRequest;
 import com.fhict.campaignmanager.dto.InviteResponse;
 import com.fhict.campaignmanager.service.IInviteService;
 import com.fhict.campaignmanager.service.InviteService;
@@ -19,14 +20,14 @@ public class InviteController {
 
     @CrossOrigin
     @PostMapping
-    public void sendInvite() {
-        // Implement the logic to send an invite
+    public void sendInvite(@RequestBody CreateInviteRequest inviteRequest) {
+        inviteService.sendInvite(inviteRequest);
     }
 
     @CrossOrigin
     @GetMapping("/{id}")
-    public void getInvite(@PathVariable int id) {
-        // Implement the logic to retrieve an invite by ID
+    public InviteResponse getInvite(@PathVariable int id) {
+        return inviteService.getInvite(id);
     }
 
     @CrossOrigin
@@ -38,7 +39,24 @@ public class InviteController {
     @CrossOrigin
     @GetMapping("/campaigns/{id}")
     public List<InviteResponse> getAllInvitesForCampaign(@PathVariable int id) {
-        // Implement the logic to retrieve all invites for a specific campaign
-        return null;
+        return inviteService.getAllInvitesForCampaign(id);
+    }
+
+    @CrossOrigin
+    @PostMapping("/{id}/accept")
+    public void acceptInvite(@PathVariable int id) {
+        inviteService.acceptInvite(id);
+    }
+
+    @CrossOrigin
+    @PostMapping("/{id}/decline")
+    public void declineInvite(@PathVariable int id) {
+        inviteService.declineInvite(id);
+    }
+
+    @CrossOrigin
+    @PostMapping("/{id}/revoke")
+    public void revokeInvite(@PathVariable int id) {
+        inviteService.revokeInvite(id);
     }
 }

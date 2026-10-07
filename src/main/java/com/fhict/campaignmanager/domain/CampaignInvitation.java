@@ -2,6 +2,8 @@ package com.fhict.campaignmanager.domain;
 
 import lombok.*;
 
+import java.time.Instant;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -14,5 +16,5 @@ public class CampaignInvitation {
     private User invitedUser;
     private Role role;
     private InvitationStatus status;
+    private Instant expiresAt;
 }
-
