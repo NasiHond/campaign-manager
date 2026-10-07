@@ -15,7 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
+import java.util.HashMap;
 
 @Service
 public class CampaignService implements ICampaignService
@@ -46,10 +46,13 @@ public class CampaignService implements ICampaignService
         User creator = userService.getUserByUsername(authentication.getName());
         LOGGER.info("creator: {}", creator);
         LOGGER.info("Role: {}", Role.OWNER);
+        HashMap<User, Role> participants = new HashMap<>();
+        participants.put(creator, Role.OWNER);
+
         Campaign campaign = Campaign.builder()
                 .name(campaignRequest.getName())
                 .description(campaignRequest.getDescription())
-                .participants(Map.of(creator, Role.OWNER))
+                .participants(participants)
                 .build();
 
         return campaignMapper.toCampaignResponse(campaignRepository.save(campaign));
@@ -61,7 +64,9 @@ public class CampaignService implements ICampaignService
         if (authentication == null || !authService.isAuthenticationValid(authentication)) {
             return null;
         }
-        return null;
+
+        Campaign campaign = campaignRepository.findById(id);
+        return campaignMapper.toCampaignResponse(campaign);
     }
 
     @Override
@@ -75,6 +80,12 @@ public class CampaignService implements ICampaignService
         return campaigns.stream()
                 .map(campaignMapper::toCampaignResponse)
                 .toList();
+    }
+
+    @Override
+    public CampaignResponse updateParticipantRole(int campaignId, int userId, String role) {
+        // Implement the logic to update a participant's role in a campaign
+        return null;
     }
 
     @Override
