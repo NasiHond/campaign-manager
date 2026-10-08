@@ -5,7 +5,6 @@ import com.fhict.campaignmanager.domain.Role;
 import com.fhict.campaignmanager.domain.User;
 import com.fhict.campaignmanager.dto.CampaignResponse;
 import com.fhict.campaignmanager.dto.CreateCampaignRequest;
-import com.fhict.campaignmanager.dto.UserResponse;
 import com.fhict.campaignmanager.mapper.CampaignMapper;
 import com.fhict.campaignmanager.repository.CampaignRepository;
 import com.fhict.campaignmanager.service.CampaignService;
@@ -248,6 +247,105 @@ class CampaignServiceTest {
 
         assertEquals("User is not a participant of the campaign.", exception.getMessage());
         verify(campaignRepository, never()).save(any());
+    }
+
+    @Test
+    void updateCampaign_asOwner_updatesCampaignAndReturnsResponse() {
+        setAuthenticatedUser("owner");
+        User owner = User.builder().id(1).username("owner").build();
+        Campaign campaign = campaignWithParticipants(owner, User.builder().id(2).username("participant").build());
+        CampaignResponse expected = CampaignResponse.builder().id(10).name("Updated").description("Updated description").build();
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("owner")).thenReturn(owner);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.save(campaign)).thenReturn(campaign);
+        when(campaignMapper.toCampaignResponse(campaign)).thenReturn(expected);
+
+        CampaignResponse result = campaignService.updateCampaign(10,
+                com.fhict.campaignmanager.dto.UpdateCampaignRequest.builder()
+                        .name("Updated")
+                        .description("Updated description")
+                        .build());
+
+        assertEquals(expected, result);
+        assertEquals("Updated", campaign.getName());
+        assertEquals("Updated description", campaign.getDescription());
+    }
+
+    @Test
+    void updateCampaign_withoutValidAuthentication_returnsNull() {
+        setAuthenticatedUser("owner");
+        when(authService.isAuthenticationValid(any())).thenReturn(false);
+
+        assertNull(campaignService.updateCampaign(10,
+                com.fhict.campaignmanager.dto.UpdateCampaignRequest.builder()
+                        .name("Updated")
+                        .description("Updated description")
+                        .build()));
+        verifyNoInteractions(userService, campaignRepository, campaignMapper);
+    }
+
+    @Test
+    void updateCampaign_asNonOwner_returnsNull() {
+        setAuthenticatedUser("participant");
+        User owner = User.builder().id(1).username("owner").build();
+        User participant = User.builder().id(2).username("participant").build();
+        Campaign campaign = campaignWithParticipants(owner, participant);
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("participant")).thenReturn(participant);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+
+        assertNull(campaignService.updateCampaign(10,
+                com.fhict.campaignmanager.dto.UpdateCampaignRequest.builder()
+                        .name("Updated")
+                        .description("Updated description")
+                        .build()));
+        verify(campaignRepository, never()).save(any());
+    }
+
+    @Test
+    void deleteCampaign_asOwner_deletesCampaign() {
+        setAuthenticatedUser("owner");
+        User owner = User.builder().id(1).username("owner").build();
+        Campaign campaign = campaignWithParticipants(owner, User.builder().id(2).username("participant").build());
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("owner")).thenReturn(owner);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+
+        campaignService.deleteCampaign(10);
+
+        verify(campaignRepository).delete(campaign.getId());
+    }
+
+    @Test
+    void deleteCampaign_withoutValidAuthentication_doesNothing() {
+        setAuthenticatedUser("owner");
+        when(authService.isAuthenticationValid(any())).thenReturn(false);
+
+        campaignService.deleteCampaign(10);
+
+        verifyNoInteractions(campaignRepository, userService);
+    }
+
+    @Test
+    void deleteCampaign_asNonOwner_throwsException() {
+        setAuthenticatedUser("participant");
+        User owner = User.builder().id(1).username("owner").build();
+        User participant = User.builder().id(2).username("participant").build();
+        Campaign campaign = campaignWithParticipants(owner, participant);
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("participant")).thenReturn(participant);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> campaignService.deleteCampaign(10));
+
+        assertEquals("Only the owner of the campaign can delete it.", exception.getMessage());
+        verify(campaignRepository, never()).delete(anyInt());
     }
 
     private Campaign campaignWithParticipants(User owner, User participant) {

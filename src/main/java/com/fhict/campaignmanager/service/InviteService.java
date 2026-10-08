@@ -13,6 +13,7 @@ import com.fhict.campaignmanager.repository.InviteRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -28,14 +29,24 @@ public class InviteService implements IInviteService{
     private final IAuthService authService;
     private final IUserService userService;
     private final InviteMapper inviteMapper;
+    private final CampaignAuthorizationService campaignAuthorizationService;
 
+    @Autowired
     public InviteService(InviteRepository inviteRepository, CampaignRepository campaignRepository,
-                         IAuthService authService, IUserService userService, InviteMapper inviteMapper) {
+                         IAuthService authService, IUserService userService, InviteMapper inviteMapper,
+                         CampaignAuthorizationService campaignAuthorizationService) {
         this.inviteRepository = inviteRepository;
         this.campaignRepository = campaignRepository;
         this.authService = authService;
         this.userService = userService;
         this.inviteMapper = inviteMapper;
+        this.campaignAuthorizationService = campaignAuthorizationService;
+    }
+
+    public InviteService(InviteRepository inviteRepository, CampaignRepository campaignRepository,
+                         IAuthService authService, IUserService userService, InviteMapper inviteMapper) {
+        this(inviteRepository, campaignRepository, authService, userService, inviteMapper,
+                new CampaignAuthorizationService());
     }
 
     @Override
@@ -65,15 +76,7 @@ public class InviteService implements IInviteService{
         }
 
         User invitedBy = userService.getUserByUsername(authentication.getName());
-        boolean inviterIsParticipant = invitedBy != null
-                && campaign.getParticipants() != null
-                && campaign.getParticipants().keySet().stream()
-                .anyMatch(participant -> participant.getId() == invitedBy.getId());
-        boolean inviterIsOwner = inviterIsParticipant
-                && campaign.getParticipants().entrySet().stream()
-                .anyMatch(entry -> entry.getKey().getId() == invitedBy.getId()
-                        && entry.getValue() == Role.OWNER);
-        if (!inviterIsOwner) {
+        if (!campaignAuthorizationService.isOwner(campaign, invitedBy)) {
             throw new IllegalArgumentException("Only campaign owners can send invites");
         }
 
@@ -136,13 +139,7 @@ public class InviteService implements IInviteService{
 
         Campaign campaign = campaignRepository.findById(campaignId);
         User user = userService.getUserByUsername(authentication.getName());
-        boolean isOwner = user != null
-                && campaign != null
-                && campaign.getParticipants() != null
-                && campaign.getParticipants().entrySet().stream()
-                .anyMatch(entry -> entry.getKey().getId() == user.getId()
-                        && entry.getValue() == Role.OWNER);
-        if (!isOwner) {
+        if (!campaignAuthorizationService.isOwner(campaign, user)) {
             return List.of();
         }
 
