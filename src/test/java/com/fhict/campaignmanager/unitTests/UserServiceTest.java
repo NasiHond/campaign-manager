@@ -90,6 +90,16 @@ class UserServiceTest {
     }
 
     @Test
+    void getUserById_returnsDomainUserFromRepository() {
+        User expected = User.builder().id(1).username("NasiHond").build();
+        when(userRepository.findById(1)).thenReturn(expected);
+
+        assertEquals(expected, userService.getUserById(1));
+        verify(userRepository).findById(1);
+        verifyNoInteractions(userMapper);
+    }
+
+    @Test
     void updateUser_updatesUserAndReturnsMappedResponse() {
         User user = User.builder()
                 .id(1)

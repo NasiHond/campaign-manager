@@ -16,6 +16,8 @@ public interface ICampaignService
 
     CampaignResponse updateParticipantRole(int campaignId, int userId, String role);
 
+    void removeParticipant(int campaignId, int userId);
+
     void deleteCampaign(int id);
 
     List<CampaignResponse> getAllCampaignsFromUser();

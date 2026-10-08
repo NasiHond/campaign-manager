@@ -11,6 +11,8 @@ public interface IUserService
 
     UserResponse getUser(int id);
 
+    User getUserById(int id);
+
     User getUserByUsername(String username);
 
     User getUserByEmail(String email);
