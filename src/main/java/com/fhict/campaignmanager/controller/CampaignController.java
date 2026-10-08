@@ -2,8 +2,8 @@ package com.fhict.campaignmanager.controller;
 
 import com.fhict.campaignmanager.dto.CampaignResponse;
 import com.fhict.campaignmanager.dto.CreateCampaignRequest;
+import com.fhict.campaignmanager.dto.UpdateCampaignRequest;
 import com.fhict.campaignmanager.mapper.CampaignMapper;
-import com.fhict.campaignmanager.service.CampaignService;
 import com.fhict.campaignmanager.service.ICampaignService;
 import com.fhict.campaignmanager.service.IInviteService;
 import org.springframework.web.bind.annotation.*;
@@ -60,14 +60,13 @@ public class CampaignController {
 
     @CrossOrigin
     @PutMapping("/{id}")
-    public CampaignResponse updateCampaign(@PathVariable int id, @RequestBody CreateCampaignRequest updateCampaignRequest) {
-        // Implement the logic to update a campaign and return the response
-        return null; // Placeholder for actual implementation
+    public CampaignResponse updateCampaign(@PathVariable int id, @RequestBody UpdateCampaignRequest updateCreateCampaignRequest) {
+        return campaignService.updateCampaign(id, updateCreateCampaignRequest);
     }
 
     @CrossOrigin
     @DeleteMapping("/{id}")
     public void deleteCampaign(@PathVariable int id) {
-        // Implement the logic to delete a campaign
+        campaignService.deleteCampaign(id);
     }
 }
