@@ -5,6 +5,7 @@ import com.fhict.campaignmanager.domain.Role;
 import com.fhict.campaignmanager.domain.User;
 import com.fhict.campaignmanager.dto.CampaignResponse;
 import com.fhict.campaignmanager.dto.CreateCampaignRequest;
+import com.fhict.campaignmanager.dto.UserResponse;
 import com.fhict.campaignmanager.mapper.CampaignMapper;
 import com.fhict.campaignmanager.repository.CampaignRepository;
 import com.fhict.campaignmanager.service.CampaignService;
@@ -113,6 +114,150 @@ class CampaignServiceTest {
     void getAllCampaignsFromUser_withoutAuthentication_returnsNull() {
         assertNull(campaignService.getAllCampaignsFromUser());
         verifyNoInteractions(authService, userService, campaignRepository, campaignMapper);
+    }
+
+    @Test
+    void updateParticipantRole_asOwner_updatesParticipantAndReturnsCampaign() {
+        setAuthenticatedUser("owner");
+        User owner = User.builder().id(1).username("owner").build();
+        User participant = User.builder().id(2).username("participant").build();
+        Campaign campaign = campaignWithParticipants(owner, participant);
+        CampaignResponse expected = CampaignResponse.builder().id(10).build();
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("owner")).thenReturn(owner);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(userService.getUserById(2)).thenReturn(participant);
+        when(campaignRepository.save(campaign)).thenReturn(campaign);
+        when(campaignMapper.toCampaignResponse(campaign)).thenReturn(expected);
+
+        assertEquals(expected, campaignService.updateParticipantRole(10, 2, "AUTHOR"));
+        assertEquals(Role.AUTHOR, campaign.getParticipants().get(participant));
+        verify(campaignRepository).save(campaign);
+    }
+
+    @Test
+    void updateParticipantRole_withoutValidAuthentication_returnsNull() {
+        setAuthenticatedUser("owner");
+        when(authService.isAuthenticationValid(any())).thenReturn(false);
+
+        assertNull(campaignService.updateParticipantRole(10, 2, "AUTHOR"));
+        verifyNoInteractions(campaignRepository, userService, campaignMapper);
+    }
+
+    @Test
+    void updateParticipantRole_asNonOwner_throwsException() {
+        setAuthenticatedUser("participant");
+        User owner = User.builder().id(1).username("owner").build();
+        User participant = User.builder().id(2).username("participant").build();
+        Campaign campaign = campaignWithParticipants(owner, participant);
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("participant")).thenReturn(participant);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> campaignService.updateParticipantRole(10, 2, "AUTHOR"));
+
+        assertEquals("Only the owner of the campaign can update participant roles.",
+                exception.getMessage());
+        verify(campaignRepository, never()).save(any());
+    }
+
+    @Test
+    void updateParticipantRole_forNonParticipant_throwsException() {
+        setAuthenticatedUser("owner");
+        User owner = User.builder().id(1).username("owner").build();
+        User participant = User.builder().id(2).username("participant").build();
+        Campaign campaign = campaignWithParticipants(owner, participant);
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("owner")).thenReturn(owner);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(userService.getUserById(3)).thenReturn(User.builder().id(3).build());
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> campaignService.updateParticipantRole(10, 3, "AUTHOR"));
+
+        assertEquals("User is not a participant of the campaign.", exception.getMessage());
+        verify(campaignRepository, never()).save(any());
+    }
+
+    @Test
+    void removeParticipant_asOwner_removesParticipantAndSavesCampaign() {
+        setAuthenticatedUser("owner");
+        User owner = User.builder().id(1).username("owner").build();
+        User participant = User.builder().id(2).username("participant").build();
+        Campaign campaign = campaignWithParticipants(owner, participant);
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("owner")).thenReturn(owner);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(userService.getUserById(2)).thenReturn(participant);
+
+        campaignService.removeParticipant(10, 2);
+
+        assertFalse(campaign.getParticipants().containsKey(participant));
+        assertEquals(Role.OWNER, campaign.getParticipants().get(owner));
+        verify(campaignRepository).save(campaign);
+    }
+
+    @Test
+    void removeParticipant_withoutValidAuthentication_doesNothing() {
+        setAuthenticatedUser("owner");
+        when(authService.isAuthenticationValid(any())).thenReturn(false);
+
+        campaignService.removeParticipant(10, 2);
+
+        verifyNoInteractions(campaignRepository, userService);
+    }
+
+    @Test
+    void removeParticipant_asNonOwner_throwsException() {
+        setAuthenticatedUser("participant");
+        User owner = User.builder().id(1).username("owner").build();
+        User participant = User.builder().id(2).username("participant").build();
+        Campaign campaign = campaignWithParticipants(owner, participant);
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("participant")).thenReturn(participant);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> campaignService.removeParticipant(10, 2));
+
+        assertEquals("Only the owner of the campaign can remove participants.",
+                exception.getMessage());
+        verify(campaignRepository, never()).save(any());
+    }
+
+    @Test
+    void removeParticipant_forNonParticipant_throwsException() {
+        setAuthenticatedUser("owner");
+        User owner = User.builder().id(1).username("owner").build();
+        User participant = User.builder().id(2).username("participant").build();
+        Campaign campaign = campaignWithParticipants(owner, participant);
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("owner")).thenReturn(owner);
+        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(userService.getUserById(3)).thenReturn(User.builder().id(3).build());
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> campaignService.removeParticipant(10, 3));
+
+        assertEquals("User is not a participant of the campaign.", exception.getMessage());
+        verify(campaignRepository, never()).save(any());
+    }
+
+    private Campaign campaignWithParticipants(User owner, User participant) {
+        return Campaign.builder()
+                .id(10)
+                .name("Campaign")
+                .participants(new java.util.HashMap<>(Map.of(
+                        owner, Role.OWNER,
+                        participant, Role.PARTICIPANT)))
+                .build();
     }
 
     private void setAuthenticatedUser(String username) {

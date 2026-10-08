@@ -48,14 +48,14 @@ public class CampaignController {
 
     @CrossOrigin
     @PutMapping("/{id}/participants/{userId}/role")
-    public void updateParticipantRole(@PathVariable int id, @PathVariable int userId, @RequestParam String role) {
-        campaignService.updateParticipantRole(id, userId, role);
+    public CampaignResponse updateParticipantRole(@PathVariable int id, @PathVariable int userId, @RequestParam String role) {
+        return campaignService.updateParticipantRole(id, userId, role);
     }
 
     @CrossOrigin
     @PutMapping("/{id}/participants/{userId}")
     public void removeParticipant(@PathVariable int id, @PathVariable int userId) {
-        // Implement the logic to update a participant
+        campaignService.removeParticipant(id, userId);
     }
 
     @CrossOrigin

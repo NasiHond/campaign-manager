@@ -1,6 +1,5 @@
 package com.fhict.campaignmanager.service;
 
-import com.fhict.campaignmanager.controller.UserController;
 import com.fhict.campaignmanager.domain.Campaign;
 import com.fhict.campaignmanager.domain.Role;
 import com.fhict.campaignmanager.domain.User;
@@ -84,8 +83,43 @@ public class CampaignService implements ICampaignService
 
     @Override
     public CampaignResponse updateParticipantRole(int campaignId, int userId, String role) {
-        // Implement the logic to update a participant's role in a campaign
-        return null;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authService.isAuthenticationValid(authentication)) {
+            return null;
+        }
+
+        User user = userService.getUserByUsername(authentication.getName());
+        Campaign campaign = campaignRepository.findById(campaignId);
+        if (campaign.getParticipants().get(user) == Role.OWNER) {
+            User participant = userService.getUserById(userId);
+            if (participant != null && campaign.getParticipants().containsKey(participant)) {
+                campaign.getParticipants().put(participant, Role.valueOf(role));
+                return campaignMapper.toCampaignResponse(campaignRepository.save(campaign));
+            }
+            throw new IllegalArgumentException("User is not a participant of the campaign.");
+        }
+        throw new IllegalArgumentException("Only the owner of the campaign can update participant roles.");
+    }
+
+    @Override
+    public void removeParticipant(int campaignId, int userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authService.isAuthenticationValid(authentication)) {
+            return;
+        }
+
+        User user = userService.getUserByUsername(authentication.getName());
+        Campaign campaign = campaignRepository.findById(campaignId);
+        if (campaign.getParticipants().get(user) == Role.OWNER) {
+            User participant = userService.getUserById(userId);
+            if (participant != null && campaign.getParticipants().containsKey(participant)) {
+                campaign.getParticipants().remove(participant);
+                campaignRepository.save(campaign);
+                return;
+            }
+            throw new IllegalArgumentException("User is not a participant of the campaign.");
+        }
+        throw new IllegalArgumentException("Only the owner of the campaign can remove participants.");
     }
 
     @Override
