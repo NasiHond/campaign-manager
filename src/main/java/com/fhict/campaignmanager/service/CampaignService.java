@@ -8,6 +8,7 @@ import com.fhict.campaignmanager.dto.CreateCampaignRequest;
 import com.fhict.campaignmanager.dto.UpdateCampaignRequest;
 import com.fhict.campaignmanager.mapper.CampaignMapper;
 import com.fhict.campaignmanager.repository.CampaignRepository;
+import com.fhict.campaignmanager.mapper.DomainEntityMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
@@ -28,22 +29,25 @@ public class CampaignService implements ICampaignService
     private final IUserService userService;
     private final CampaignMapper campaignMapper;
     private final CampaignAuthorizationService campaignAuthorizationService;
+    private final DomainEntityMapper entityMapper;
 
     @Autowired
     public CampaignService(CampaignRepository campaignRepository, IAuthService authService,
                            IUserService userService, CampaignMapper campaignMapper,
-                           CampaignAuthorizationService campaignAuthorizationService) {
+                           CampaignAuthorizationService campaignAuthorizationService,
+                           DomainEntityMapper entityMapper) {
         this.campaignRepository = campaignRepository;
         this.authService = authService;
         this.userService = userService;
         this.campaignMapper = campaignMapper;
         this.campaignAuthorizationService = campaignAuthorizationService;
+        this.entityMapper = entityMapper;
     }
 
     public CampaignService(CampaignRepository campaignRepository, IAuthService authService,
                            IUserService userService, CampaignMapper campaignMapper) {
         this(campaignRepository, authService, userService, campaignMapper,
-                new CampaignAuthorizationService());
+                new CampaignAuthorizationService(), new DomainEntityMapper());
     }
 
     @Override
@@ -65,7 +69,7 @@ public class CampaignService implements ICampaignService
                 .participants(participants)
                 .build();
 
-        return campaignMapper.toCampaignResponse(campaignRepository.save(campaign));
+        return campaignMapper.toCampaignResponse(entityMapper.toDomain(campaignRepository.save(entityMapper.toEntity(campaign))));
     }
 
     @Override
@@ -75,7 +79,7 @@ public class CampaignService implements ICampaignService
             return null;
         }
 
-        Campaign campaign = campaignRepository.findById(id);
+        Campaign campaign = entityMapper.toDomain(campaignRepository.findById(id).orElse(null));
         return campaignMapper.toCampaignResponse(campaign);
     }
 
@@ -86,7 +90,8 @@ public class CampaignService implements ICampaignService
             return null;
         }
         User user = userService.getUserByUsername(authentication.getName());
-        List<Campaign> campaigns = campaignRepository.findAllByParticipantsContainingKey(user);
+        List<Campaign> campaigns = campaignRepository.findAllByParticipantEntities_User_Id(user.getId())
+                .stream().map(entityMapper::toDomain).toList();
         return campaigns.stream()
                 .map(campaignMapper::toCampaignResponse)
                 .toList();
@@ -100,12 +105,12 @@ public class CampaignService implements ICampaignService
         }
 
         User user = userService.getUserByUsername(authentication.getName());
-        Campaign campaign = campaignRepository.findById(campaignId);
+        Campaign campaign = entityMapper.toDomain(campaignRepository.findById(campaignId).orElse(null));
         if (campaignAuthorizationService.isOwner(campaign, user)) {
             User participant = userService.getUserById(userId);
             if (participant != null && campaign.getParticipants().containsKey(participant)) {
                 campaign.getParticipants().put(participant, Role.valueOf(role));
-                return campaignMapper.toCampaignResponse(campaignRepository.save(campaign));
+                return campaignMapper.toCampaignResponse(entityMapper.toDomain(campaignRepository.save(entityMapper.toEntity(campaign))));
             }
             throw new IllegalArgumentException("User is not a participant of the campaign.");
         }
@@ -120,12 +125,12 @@ public class CampaignService implements ICampaignService
         }
 
         User user = userService.getUserByUsername(authentication.getName());
-        Campaign campaign = campaignRepository.findById(campaignId);
+        Campaign campaign = entityMapper.toDomain(campaignRepository.findById(campaignId).orElse(null));
         if (campaignAuthorizationService.isOwner(campaign, user)) {
             User participant = userService.getUserById(userId);
             if (participant != null && campaign.getParticipants().containsKey(participant)) {
                 campaign.getParticipants().remove(participant);
-                campaignRepository.save(campaign);
+                campaignRepository.save(entityMapper.toEntity(campaign));
                 return;
             }
             throw new IllegalArgumentException("User is not a participant of the campaign.");
@@ -141,11 +146,11 @@ public class CampaignService implements ICampaignService
         }
 
         User user = userService.getUserByUsername(authentication.getName());
-        Campaign campaign = campaignRepository.findById(id);
+        Campaign campaign = entityMapper.toDomain(campaignRepository.findById(id).orElse(null));
         if (campaignAuthorizationService.isOwner(campaign, user)) {
             campaign.setName(updateRequest.getName());
             campaign.setDescription(updateRequest.getDescription());
-            return campaignMapper.toCampaignResponse(campaignRepository.save(campaign));
+            return campaignMapper.toCampaignResponse(entityMapper.toDomain(campaignRepository.save(entityMapper.toEntity(campaign))));
         }
         return null;
     }
@@ -158,9 +163,9 @@ public class CampaignService implements ICampaignService
         }
 
         User user = userService.getUserByUsername(authentication.getName());
-        Campaign campaign = campaignRepository.findById(id);
+        Campaign campaign = entityMapper.toDomain(campaignRepository.findById(id).orElse(null));
         if (campaignAuthorizationService.isOwner(campaign, user)) {
-            campaignRepository.delete(campaign.getId());
+            campaignRepository.deleteById(campaign.getId());
         } else {
             throw new IllegalArgumentException("Only the owner of the campaign can delete it.");
         }

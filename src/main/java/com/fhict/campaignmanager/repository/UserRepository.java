@@ -1,18 +1,10 @@
 package com.fhict.campaignmanager.repository;
 
-import com.fhict.campaignmanager.domain.User;
-import org.springframework.stereotype.Service;
+import com.fhict.campaignmanager.persistence.entity.UserEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface UserRepository {
-    User save(User user);
+public interface UserRepository extends JpaRepository<UserEntity, Integer> {
+    UserEntity findByUsername(String username);
 
-    User findById(int id);
-
-    User findByUsername(String username);
-
-    User findByEmail(String email);
-
-    User update(User user);
-
-    void delete(int id);
+    UserEntity findByEmail(String email);
 }

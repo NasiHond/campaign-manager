@@ -1,18 +1,10 @@
 package com.fhict.campaignmanager.repository;
 
-import com.fhict.campaignmanager.domain.Campaign;
-import com.fhict.campaignmanager.domain.User;
+import com.fhict.campaignmanager.persistence.entity.CampaignEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface CampaignRepository {
-    Campaign save(Campaign campaign);
-
-    Campaign findById(int id);
-
-    Campaign update(Campaign campaign);
-
-    void delete(int id);
-
-    List<Campaign> findAllByParticipantsContainingKey(User user);
+public interface CampaignRepository extends JpaRepository<CampaignEntity, Integer> {
+    List<CampaignEntity> findAllByParticipantEntities_User_Id(int userId);
 }
