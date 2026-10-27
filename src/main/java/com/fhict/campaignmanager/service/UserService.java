@@ -6,6 +6,8 @@ import com.fhict.campaignmanager.dto.UpdateUserRequest;
 import com.fhict.campaignmanager.dto.UserResponse;
 import com.fhict.campaignmanager.mapper.UserMapper;
 import com.fhict.campaignmanager.repository.UserRepository;
+import com.fhict.campaignmanager.mapper.DomainEntityMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -15,11 +17,19 @@ public class UserService implements IUserService
     private final UserMapper userMapper;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final DomainEntityMapper entityMapper;
 
-    public UserService(UserMapper userMapper, UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    @Autowired
+    public UserService(UserMapper userMapper, UserRepository userRepository, PasswordEncoder passwordEncoder,
+                       DomainEntityMapper entityMapper) {
         this.userMapper = userMapper;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.entityMapper = entityMapper;
+    }
+
+    public UserService(UserMapper userMapper, UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this(userMapper, userRepository, passwordEncoder, new DomainEntityMapper());
     }
 
     @Override
@@ -27,13 +37,12 @@ public class UserService implements IUserService
         User user = userMapper.toUser(createUserRequest);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        User savedUser = userRepository.save(user);
-        return userMapper.toUserResponse(savedUser);
+        return userMapper.toUserResponse(entityMapper.toDomain(userRepository.save(entityMapper.toEntity(user))));
     }
 
     @Override
     public UserResponse getUser(int id) {
-        User user = userRepository.findById(id);
+        User user = entityMapper.toDomain(userRepository.findById(id).orElse(null));
         if (user != null) {
             return userMapper.toUserResponse(user);
         }
@@ -42,27 +51,27 @@ public class UserService implements IUserService
 
     @Override
     public User getUserById(int id) {
-        return userRepository.findById(id);
+        return entityMapper.toDomain(userRepository.findById(id).orElse(null));
     }
 
     @Override
     public User getUserByUsername(String username) {
-        return userRepository.findByUsername(username);
+        return entityMapper.toDomain(userRepository.findByUsername(username));
     }
 
     @Override
     public User getUserByEmail(String email) {
-        return userRepository.findByEmail(email);
+        return entityMapper.toDomain(userRepository.findByEmail(email));
     }
 
     @Override
     public UserResponse updateUser(int id, UpdateUserRequest updateUserRequest) {
-        User user = userRepository.findById(id);
+        User user = entityMapper.toDomain(userRepository.findById(id).orElse(null));
         if (user != null)
         {
             user.setUsername(updateUserRequest.getUsername());
             user.setEmail(updateUserRequest.getEmail());
-            User updatedUser = userRepository.update(user);
+            User updatedUser = entityMapper.toDomain(userRepository.save(entityMapper.toEntity(user)));
             return userMapper.toUserResponse(updatedUser);
         }
         return null;
@@ -70,7 +79,7 @@ public class UserService implements IUserService
 
     @Override
     public void deleteUser(int id) {
-        userRepository.delete(id);
+        userRepository.deleteById(id);
     }
 
     @Override

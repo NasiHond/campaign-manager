@@ -9,6 +9,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder(toBuilder = true)
+@EqualsAndHashCode
 public class CampaignInvitation {
     private int id;
     private Campaign campaign;

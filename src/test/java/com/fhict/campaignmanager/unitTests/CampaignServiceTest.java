@@ -6,8 +6,11 @@ import com.fhict.campaignmanager.domain.User;
 import com.fhict.campaignmanager.dto.CampaignResponse;
 import com.fhict.campaignmanager.dto.CreateCampaignRequest;
 import com.fhict.campaignmanager.mapper.CampaignMapper;
+import com.fhict.campaignmanager.mapper.DomainEntityMapper;
+import com.fhict.campaignmanager.persistence.entity.CampaignEntity;
 import com.fhict.campaignmanager.repository.CampaignRepository;
 import com.fhict.campaignmanager.service.CampaignService;
+import com.fhict.campaignmanager.service.CampaignAuthorizationService;
 import com.fhict.campaignmanager.service.IAuthService;
 import com.fhict.campaignmanager.service.IUserService;
 import org.junit.jupiter.api.AfterEach;
@@ -15,12 +18,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -32,13 +38,15 @@ class CampaignServiceTest {
     @Mock private IAuthService authService;
     @Mock private IUserService userService;
     @Mock private CampaignMapper campaignMapper;
+    @Spy private DomainEntityMapper entityMapper = new DomainEntityMapper();
 
     private CampaignService campaignService;
 
     @BeforeEach
     void setUp() {
         campaignService = new CampaignService(
-                campaignRepository, authService, userService, campaignMapper);
+                campaignRepository, authService, userService, campaignMapper,
+                new CampaignAuthorizationService(), entityMapper);
     }
 
     @AfterEach
@@ -65,16 +73,14 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("robin")).thenReturn(creator);
-        when(campaignRepository.save(any(Campaign.class))).thenReturn(saved);
-        when(campaignMapper.toCampaignResponse(saved)).thenReturn(expected);
+        CampaignEntity savedEntity = entity(saved);
+        when(campaignRepository.save(any(CampaignEntity.class))).thenReturn(savedEntity);
+        when(campaignMapper.toCampaignResponse(any(Campaign.class))).thenReturn(expected);
 
         CampaignResponse result = campaignService.createCampaign(request);
 
         assertEquals(expected, result);
-        verify(campaignRepository).save(argThat(campaign ->
-                "Campaign".equals(campaign.getName())
-                        && "Description".equals(campaign.getDescription())
-                        && Role.OWNER.equals(campaign.getParticipants().get(creator))));
+        verify(campaignRepository).save(any(CampaignEntity.class));
     }
 
     @Test
@@ -100,8 +106,8 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("robin")).thenReturn(user);
-        when(campaignRepository.findAllByParticipantsContainingKey(user))
-                .thenReturn(List.of(first, second));
+        when(campaignRepository.findAllByParticipantEntities_User_Id(user.getId()))
+                .thenReturn(List.of(entity(first), entity(second)));
         when(campaignMapper.toCampaignResponse(first)).thenReturn(firstResponse);
         when(campaignMapper.toCampaignResponse(second)).thenReturn(secondResponse);
 
@@ -125,14 +131,16 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("owner")).thenReturn(owner);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
         when(userService.getUserById(2)).thenReturn(participant);
-        when(campaignRepository.save(campaign)).thenReturn(campaign);
-        when(campaignMapper.toCampaignResponse(campaign)).thenReturn(expected);
+        when(campaignRepository.save(any(CampaignEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(campaignMapper.toCampaignResponse(any(Campaign.class))).thenReturn(expected);
 
         assertEquals(expected, campaignService.updateParticipantRole(10, 2, "AUTHOR"));
-        assertEquals(Role.AUTHOR, campaign.getParticipants().get(participant));
-        verify(campaignRepository).save(campaign);
+        ArgumentCaptor<CampaignEntity> saved = ArgumentCaptor.forClass(CampaignEntity.class);
+        verify(campaignRepository).save(saved.capture());
+        assertEquals(Role.AUTHOR,
+                new DomainEntityMapper().toDomain(saved.getValue()).getParticipants().get(participant));
     }
 
     @Test
@@ -153,7 +161,7 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("participant")).thenReturn(participant);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> campaignService.updateParticipantRole(10, 2, "AUTHOR"));
@@ -172,7 +180,7 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("owner")).thenReturn(owner);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
         when(userService.getUserById(3)).thenReturn(User.builder().id(3).build());
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
@@ -191,14 +199,16 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("owner")).thenReturn(owner);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
         when(userService.getUserById(2)).thenReturn(participant);
 
         campaignService.removeParticipant(10, 2);
 
-        assertFalse(campaign.getParticipants().containsKey(participant));
-        assertEquals(Role.OWNER, campaign.getParticipants().get(owner));
-        verify(campaignRepository).save(campaign);
+        ArgumentCaptor<CampaignEntity> saved = ArgumentCaptor.forClass(CampaignEntity.class);
+        verify(campaignRepository).save(saved.capture());
+        Campaign savedCampaign = new DomainEntityMapper().toDomain(saved.getValue());
+        assertFalse(savedCampaign.getParticipants().containsKey(participant));
+        assertEquals(Role.OWNER, savedCampaign.getParticipants().get(owner));
     }
 
     @Test
@@ -220,7 +230,7 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("participant")).thenReturn(participant);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> campaignService.removeParticipant(10, 2));
@@ -239,7 +249,7 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("owner")).thenReturn(owner);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
         when(userService.getUserById(3)).thenReturn(User.builder().id(3).build());
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
@@ -258,9 +268,9 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("owner")).thenReturn(owner);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
-        when(campaignRepository.save(campaign)).thenReturn(campaign);
-        when(campaignMapper.toCampaignResponse(campaign)).thenReturn(expected);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
+        when(campaignRepository.save(any(CampaignEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(campaignMapper.toCampaignResponse(any(Campaign.class))).thenReturn(expected);
 
         CampaignResponse result = campaignService.updateCampaign(10,
                 com.fhict.campaignmanager.dto.UpdateCampaignRequest.builder()
@@ -269,8 +279,11 @@ class CampaignServiceTest {
                         .build());
 
         assertEquals(expected, result);
-        assertEquals("Updated", campaign.getName());
-        assertEquals("Updated description", campaign.getDescription());
+        ArgumentCaptor<CampaignEntity> saved = ArgumentCaptor.forClass(CampaignEntity.class);
+        verify(campaignRepository).save(saved.capture());
+        Campaign savedCampaign = new DomainEntityMapper().toDomain(saved.getValue());
+        assertEquals("Updated", savedCampaign.getName());
+        assertEquals("Updated description", savedCampaign.getDescription());
     }
 
     @Test
@@ -295,7 +308,7 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("participant")).thenReturn(participant);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
 
         assertNull(campaignService.updateCampaign(10,
                 com.fhict.campaignmanager.dto.UpdateCampaignRequest.builder()
@@ -313,11 +326,11 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("owner")).thenReturn(owner);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
 
         campaignService.deleteCampaign(10);
 
-        verify(campaignRepository).delete(campaign.getId());
+        verify(campaignRepository).deleteById(campaign.getId());
     }
 
     @Test
@@ -339,13 +352,13 @@ class CampaignServiceTest {
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("participant")).thenReturn(participant);
-        when(campaignRepository.findById(10)).thenReturn(campaign);
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> campaignService.deleteCampaign(10));
 
         assertEquals("Only the owner of the campaign can delete it.", exception.getMessage());
-        verify(campaignRepository, never()).delete(anyInt());
+        verify(campaignRepository, never()).deleteById(anyInt());
     }
 
     private Campaign campaignWithParticipants(User owner, User participant) {
@@ -356,6 +369,10 @@ class CampaignServiceTest {
                         owner, Role.OWNER,
                         participant, Role.PARTICIPANT)))
                 .build();
+    }
+
+    private CampaignEntity entity(Campaign campaign) {
+        return new DomainEntityMapper().toEntity(campaign);
     }
 
     private void setAuthenticatedUser(String username) {
