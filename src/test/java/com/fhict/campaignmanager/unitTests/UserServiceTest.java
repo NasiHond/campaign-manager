@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Spy;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -132,9 +133,11 @@ class UserServiceTest {
         UserResponse result = userService.updateUser(1, request);
 
         assertEquals(expected, result);
-        assertEquals("new-name", user.getUsername());
-        assertEquals("new@mail.com", user.getEmail());
-        verify(userRepository).save(any(UserEntity.class));
+        ArgumentCaptor<UserEntity> savedCaptor = ArgumentCaptor.forClass(UserEntity.class);
+        verify(userRepository).save(savedCaptor.capture());
+        UserEntity saved = savedCaptor.getValue();
+        assertEquals("new-name", saved.getUsername());
+        assertEquals("new@mail.com", saved.getEmail());
     }
 
     @Test
@@ -173,4 +176,3 @@ class UserServiceTest {
         verify(userRepository, never()).save(any());
     }
 }
-

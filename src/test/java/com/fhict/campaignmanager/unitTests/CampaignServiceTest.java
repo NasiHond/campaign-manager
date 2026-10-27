@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Spy;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -136,8 +137,10 @@ class CampaignServiceTest {
         when(campaignMapper.toCampaignResponse(any(Campaign.class))).thenReturn(expected);
 
         assertEquals(expected, campaignService.updateParticipantRole(10, 2, "AUTHOR"));
-        assertEquals(Role.AUTHOR, campaign.getParticipants().get(participant));
-        verify(campaignRepository).save(any(CampaignEntity.class));
+        ArgumentCaptor<CampaignEntity> saved = ArgumentCaptor.forClass(CampaignEntity.class);
+        verify(campaignRepository).save(saved.capture());
+        assertEquals(Role.AUTHOR,
+                new DomainEntityMapper().toDomain(saved.getValue()).getParticipants().get(participant));
     }
 
     @Test
@@ -201,9 +204,11 @@ class CampaignServiceTest {
 
         campaignService.removeParticipant(10, 2);
 
-        assertFalse(campaign.getParticipants().containsKey(participant));
-        assertEquals(Role.OWNER, campaign.getParticipants().get(owner));
-        verify(campaignRepository).save(any(CampaignEntity.class));
+        ArgumentCaptor<CampaignEntity> saved = ArgumentCaptor.forClass(CampaignEntity.class);
+        verify(campaignRepository).save(saved.capture());
+        Campaign savedCampaign = new DomainEntityMapper().toDomain(saved.getValue());
+        assertFalse(savedCampaign.getParticipants().containsKey(participant));
+        assertEquals(Role.OWNER, savedCampaign.getParticipants().get(owner));
     }
 
     @Test
@@ -274,8 +279,11 @@ class CampaignServiceTest {
                         .build());
 
         assertEquals(expected, result);
-        assertEquals("Updated", campaign.getName());
-        assertEquals("Updated description", campaign.getDescription());
+        ArgumentCaptor<CampaignEntity> saved = ArgumentCaptor.forClass(CampaignEntity.class);
+        verify(campaignRepository).save(saved.capture());
+        Campaign savedCampaign = new DomainEntityMapper().toDomain(saved.getValue());
+        assertEquals("Updated", savedCampaign.getName());
+        assertEquals("Updated description", savedCampaign.getDescription());
     }
 
     @Test

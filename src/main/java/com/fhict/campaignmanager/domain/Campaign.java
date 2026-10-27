@@ -10,6 +10,7 @@ import java.util.HashMap;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder(toBuilder = true)
+@EqualsAndHashCode
 public class Campaign {
     private int id;
     private String name;

@@ -207,12 +207,13 @@ class InviteServiceTest {
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("invitee")).thenReturn(invitedUser);
         when(inviteRepository.findAllByInvitedUser_Id(2)).thenReturn(List.of(entity(expired), entity(active)));
-        when(inviteMapper.toInviteResponse(expired)).thenReturn(expiredResponse);
-        when(inviteMapper.toInviteResponse(active)).thenReturn(activeResponse);
+        when(inviteMapper.toInviteResponse(any(CampaignInvitation.class)))
+                .thenReturn(expiredResponse, activeResponse);
 
         assertEquals(List.of(expiredResponse, activeResponse), inviteService.getAllInvitesForUser());
-        assertEquals(InvitationStatus.EXPIRED, expired.getStatus());
-        verify(inviteRepository).save(any(CampaignInvitationEntity.class));
+        ArgumentCaptor<CampaignInvitationEntity> saved = ArgumentCaptor.forClass(CampaignInvitationEntity.class);
+        verify(inviteRepository).save(saved.capture());
+        assertEquals(InvitationStatus.EXPIRED, new DomainEntityMapper().toDomain(saved.getValue()).getStatus());
     }
 
     @Test
@@ -228,7 +229,8 @@ class InviteServiceTest {
 
         assertEquals(List.of(response), inviteService.getAllInvitesForCampaign(10));
 
-        campaign.setParticipants(new HashMap<>(Map.of(invitedUser, Role.AUTHOR)));
+        when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(
+                campaign.toBuilder().participants(new HashMap<>(Map.of(invitedUser, Role.AUTHOR))).build())));
         assertEquals(List.of(), inviteService.getAllInvitesForCampaign(10));
         verify(inviteRepository).findAllByCampaign_Id(10);
     }
@@ -243,10 +245,13 @@ class InviteServiceTest {
 
         inviteService.acceptInvite(5);
 
-        assertEquals(InvitationStatus.ACCEPTED, invitation.getStatus());
-        assertEquals(Role.AUTHOR, campaign.getParticipants().get(invitedUser));
-        verify(inviteRepository).save(any(CampaignInvitationEntity.class));
-        verify(campaignRepository).save(any(CampaignEntity.class));
+        ArgumentCaptor<CampaignInvitationEntity> savedInvite = ArgumentCaptor.forClass(CampaignInvitationEntity.class);
+        verify(inviteRepository).save(savedInvite.capture());
+        assertEquals(InvitationStatus.ACCEPTED, savedInvite.getValue().getStatus());
+        ArgumentCaptor<CampaignEntity> savedCampaign = ArgumentCaptor.forClass(CampaignEntity.class);
+        verify(campaignRepository).save(savedCampaign.capture());
+        assertEquals(Role.AUTHOR,
+                new DomainEntityMapper().toDomain(savedCampaign.getValue()).getParticipants().get(invitedUser));
     }
 
     @Test
@@ -274,8 +279,9 @@ class InviteServiceTest {
 
         inviteService.declineInvite(5);
 
-        assertEquals(InvitationStatus.DECLINED, invitation.getStatus());
-        verify(inviteRepository).save(any(CampaignInvitationEntity.class));
+        ArgumentCaptor<CampaignInvitationEntity> saved = ArgumentCaptor.forClass(CampaignInvitationEntity.class);
+        verify(inviteRepository).save(saved.capture());
+        assertEquals(InvitationStatus.DECLINED, saved.getValue().getStatus());
     }
 
     @Test
@@ -288,8 +294,9 @@ class InviteServiceTest {
 
         inviteService.revokeInvite(5);
 
-        assertEquals(InvitationStatus.REVOKED, invitation.getStatus());
-        verify(inviteRepository).save(any(CampaignInvitationEntity.class));
+        ArgumentCaptor<CampaignInvitationEntity> saved = ArgumentCaptor.forClass(CampaignInvitationEntity.class);
+        verify(inviteRepository).save(saved.capture());
+        assertEquals(InvitationStatus.REVOKED, saved.getValue().getStatus());
     }
 
     @Test
@@ -305,7 +312,8 @@ class InviteServiceTest {
         assertEquals("Only the inviter can revoke this invite", unauthorized.getMessage());
 
         authenticateAs("owner");
-        invitation.setStatus(InvitationStatus.ACCEPTED);
+        CampaignInvitation handledInvite = invitation.toBuilder().status(InvitationStatus.ACCEPTED).build();
+        when(inviteRepository.findById(5)).thenReturn(Optional.of(entity(handledInvite)));
         when(userService.getUserByUsername("owner")).thenReturn(owner);
         IllegalArgumentException handled = assertThrows(IllegalArgumentException.class,
                 () -> inviteService.revokeInvite(5));
