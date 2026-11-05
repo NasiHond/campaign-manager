@@ -12,6 +12,7 @@ import com.fhict.campaignmanager.repository.CampaignRepository;
 import com.fhict.campaignmanager.repository.InviteRepository;
 import com.fhict.campaignmanager.mapper.DomainEntityMapper;
 import com.fhict.campaignmanager.persistence.entity.CampaignInvitationEntity;
+import com.fhict.campaignmanager.persistence.entity.CampaignParticipantEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -164,7 +165,8 @@ public class InviteService implements IInviteService{
             throw new IllegalStateException("Authentication is required to accept an invite");
         }
 
-        CampaignInvitation invitation = entityMapper.toDomain(inviteRepository.findById(inviteId).orElse(null));
+        CampaignInvitationEntity invitationEntity = inviteRepository.findById(inviteId).orElse(null);
+        CampaignInvitation invitation = entityMapper.toDomain(invitationEntity);
         if (invitation == null) {
             throw new IllegalArgumentException("Invite does not exist");
         }
@@ -180,11 +182,20 @@ public class InviteService implements IInviteService{
         }
 
         invitation.setStatus(InvitationStatus.ACCEPTED);
-        inviteRepository.save(entityMapper.toEntity(invitation));
+        invitationEntity.setStatus(InvitationStatus.ACCEPTED);
+        inviteRepository.save(invitationEntity);
 
-        Campaign campaign = invitation.getCampaign();
-        campaign.getParticipants().put(user, invitation.getRole());
-        campaignRepository.save(entityMapper.toEntity(campaign));
+        var campaignEntity = invitationEntity.getCampaign();
+        boolean alreadyParticipant = campaignEntity.getParticipantEntities().stream()
+                .anyMatch(participant -> participant.getUser().getId() == user.getId());
+        if (!alreadyParticipant) {
+            campaignEntity.getParticipantEntities().add(new CampaignParticipantEntity(
+                    0,
+                    campaignEntity,
+                    invitationEntity.getInvitedUser(),
+                    invitationEntity.getRole()));
+            campaignRepository.save(campaignEntity);
+        }
     }
 
     @Override
