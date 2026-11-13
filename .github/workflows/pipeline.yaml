@@ -21,5 +21,7 @@ jobs:
         run: ./gradlew test jacocoTestReport
       - name: SonarQube Analysis
         env:
-            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./gradlew sonar -Dsonar.qualitygate.wait=true
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        run: ./gradlew sonar "-Dsonar.organization=$SONAR_ORGANIZATION" -Dsonar.qualitygate.wait=true
