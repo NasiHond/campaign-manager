@@ -1,5 +1,6 @@
 package com.fhict.campaignmanager.controller;
 
+import com.fhict.campaignmanager.domain.Campaign;
 import com.fhict.campaignmanager.dto.CampaignResponse;
 import com.fhict.campaignmanager.dto.CreateCampaignRequest;
 import com.fhict.campaignmanager.dto.UpdateCampaignRequest;
@@ -27,13 +28,13 @@ public class CampaignController {
     @CrossOrigin
     @PostMapping
     public CampaignResponse createCampaign(@RequestBody CreateCampaignRequest createCampaignRequest) {
-        return campaignService.createCampaign(createCampaignRequest);
+        return campaignMapper.toCampaignResponse(campaignService.createCampaign(createCampaignRequest));
     }
 
     @CrossOrigin
     @GetMapping("/{id}")
     public CampaignResponse getCampaign(@PathVariable int id) {
-        CampaignResponse campaign = campaignService.getCampaign(id);
+        CampaignResponse campaign = campaignMapper.toCampaignResponse(campaignService.getCampaign(id));
         if (campaign != null) {
             campaign.setInvites(inviteService.getAllInvitesForCampaign(id));
         }
@@ -43,13 +44,20 @@ public class CampaignController {
     @CrossOrigin
     @GetMapping
     public List<CampaignResponse> getCampaigns() {
-        return campaignService.getAllCampaignsFromUser();
+        List<Campaign> campaigns = campaignService.getAllCampaignsFromUser();
+        if (campaigns == null) {
+            return null;
+        }
+        return campaigns.stream()
+                .map(campaignMapper::toCampaignResponse)
+                .toList();
     }
 
     @CrossOrigin
     @PutMapping("/{id}/participants/{userId}/role")
     public CampaignResponse updateParticipantRole(@PathVariable int id, @PathVariable int userId, @RequestParam String role) {
-        return campaignService.updateParticipantRole(id, userId, role);
+        return campaignMapper.toCampaignResponse(
+                campaignService.updateParticipantRole(id, userId, role));
     }
 
     @CrossOrigin
@@ -61,7 +69,8 @@ public class CampaignController {
     @CrossOrigin
     @PutMapping("/{id}")
     public CampaignResponse updateCampaign(@PathVariable int id, @RequestBody UpdateCampaignRequest updateCreateCampaignRequest) {
-        return campaignService.updateCampaign(id, updateCreateCampaignRequest);
+        return campaignMapper.toCampaignResponse(
+                campaignService.updateCampaign(id, updateCreateCampaignRequest));
     }
 
     @CrossOrigin

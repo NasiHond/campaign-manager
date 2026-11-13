@@ -42,4 +42,10 @@ public class DomainEntityMapper {
                 .invitedUser(toEntity(d.getInvitedUser())).role(d.getRole()).status(d.getStatus())
                 .expiresAt(d.getExpiresAt()).build();
     }
+
+    public StorageNode toDomain(StorageNodeEntity e) {
+        return e == null ? null : StorageNode.builder().id(e.getId()).campaign(toDomain(e.getCampaign()))
+                .name(e.getName()).sortOrder(e.getSortOrder()).isFolder(e.isFolder())
+                .parentNode(toDomain(e.getParentNode())).build();
+    }
 }

@@ -1,6 +1,6 @@
 package com.fhict.campaignmanager.service;
 
-import com.fhict.campaignmanager.dto.CampaignResponse;
+import com.fhict.campaignmanager.domain.Campaign;
 import com.fhict.campaignmanager.dto.CreateCampaignRequest;
 import com.fhict.campaignmanager.dto.UpdateCampaignRequest;
 
@@ -8,17 +8,17 @@ import java.util.List;
 
 public interface ICampaignService
 {
-    CampaignResponse createCampaign(CreateCampaignRequest campaign);
+    Campaign createCampaign(CreateCampaignRequest campaign);
 
-    CampaignResponse getCampaign(int id);
+    Campaign getCampaign(int id);
 
-    CampaignResponse updateCampaign(int id, UpdateCampaignRequest updateRequest);
+    Campaign updateCampaign(int id, UpdateCampaignRequest updateRequest);
 
-    CampaignResponse updateParticipantRole(int campaignId, int userId, String role);
+    Campaign updateParticipantRole(int campaignId, int userId, String role);
 
     void removeParticipant(int campaignId, int userId);
 
     void deleteCampaign(int id);
 
-    List<CampaignResponse> getAllCampaignsFromUser();
+    List<Campaign> getAllCampaignsFromUser();
 }

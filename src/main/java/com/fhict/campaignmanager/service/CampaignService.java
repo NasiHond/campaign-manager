@@ -3,10 +3,8 @@ package com.fhict.campaignmanager.service;
 import com.fhict.campaignmanager.domain.Campaign;
 import com.fhict.campaignmanager.domain.Role;
 import com.fhict.campaignmanager.domain.User;
-import com.fhict.campaignmanager.dto.CampaignResponse;
 import com.fhict.campaignmanager.dto.CreateCampaignRequest;
 import com.fhict.campaignmanager.dto.UpdateCampaignRequest;
-import com.fhict.campaignmanager.mapper.CampaignMapper;
 import com.fhict.campaignmanager.repository.CampaignRepository;
 import com.fhict.campaignmanager.mapper.DomainEntityMapper;
 import org.slf4j.Logger;
@@ -27,31 +25,21 @@ public class CampaignService implements ICampaignService
     private final CampaignRepository campaignRepository;
     private final IAuthService authService;
     private final IUserService userService;
-    private final CampaignMapper campaignMapper;
-    private final CampaignAuthorizationService campaignAuthorizationService;
+    private final CampaignAuthorizationService campaignAuthorizationService = new CampaignAuthorizationService();
     private final DomainEntityMapper entityMapper;
 
     @Autowired
     public CampaignService(CampaignRepository campaignRepository, IAuthService authService,
-                           IUserService userService, CampaignMapper campaignMapper,
-                           CampaignAuthorizationService campaignAuthorizationService,
+                           IUserService userService,
                            DomainEntityMapper entityMapper) {
         this.campaignRepository = campaignRepository;
         this.authService = authService;
         this.userService = userService;
-        this.campaignMapper = campaignMapper;
-        this.campaignAuthorizationService = campaignAuthorizationService;
         this.entityMapper = entityMapper;
     }
 
-    public CampaignService(CampaignRepository campaignRepository, IAuthService authService,
-                           IUserService userService, CampaignMapper campaignMapper) {
-        this(campaignRepository, authService, userService, campaignMapper,
-                new CampaignAuthorizationService(), new DomainEntityMapper());
-    }
-
     @Override
-    public CampaignResponse createCampaign(CreateCampaignRequest createCampaignRequest) {
+    public Campaign createCampaign(CreateCampaignRequest createCampaignRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authService.isAuthenticationValid(authentication)) {
             return null;
@@ -69,36 +57,32 @@ public class CampaignService implements ICampaignService
                 .participants(participants)
                 .build();
 
-        return campaignMapper.toCampaignResponse(entityMapper.toDomain(campaignRepository.save(entityMapper.toEntity(campaign))));
+        return entityMapper.toDomain(campaignRepository.save(entityMapper.toEntity(campaign)));
     }
 
     @Override
-    public CampaignResponse getCampaign(int id) {
+    public Campaign getCampaign(int id) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authService.isAuthenticationValid(authentication)) {
             return null;
         }
 
-        Campaign campaign = entityMapper.toDomain(campaignRepository.findById(id).orElse(null));
-        return campaignMapper.toCampaignResponse(campaign);
+        return entityMapper.toDomain(campaignRepository.findById(id).orElse(null));
     }
 
     @Override
-    public List<CampaignResponse> getAllCampaignsFromUser() {
+    public List<Campaign> getAllCampaignsFromUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authService.isAuthenticationValid(authentication)) {
-            return null;
+            return List.of();
         }
         User user = userService.getUserByUsername(authentication.getName());
-        List<Campaign> campaigns = campaignRepository.findAllByParticipantEntities_User_Id(user.getId())
+        return campaignRepository.findAllByParticipantEntities_User_Id(user.getId())
                 .stream().map(entityMapper::toDomain).toList();
-        return campaigns.stream()
-                .map(campaignMapper::toCampaignResponse)
-                .toList();
     }
 
     @Override
-    public CampaignResponse updateParticipantRole(int campaignId, int userId, String role) {
+    public Campaign updateParticipantRole(int campaignId, int userId, String role) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authService.isAuthenticationValid(authentication)) {
             return null;
@@ -110,7 +94,7 @@ public class CampaignService implements ICampaignService
             User participant = userService.getUserById(userId);
             if (participant != null && campaign.getParticipants().containsKey(participant)) {
                 campaign.getParticipants().put(participant, Role.valueOf(role));
-                return campaignMapper.toCampaignResponse(entityMapper.toDomain(campaignRepository.save(entityMapper.toEntity(campaign))));
+                return entityMapper.toDomain(campaignRepository.save(entityMapper.toEntity(campaign)));
             }
             throw new IllegalArgumentException("User is not a participant of the campaign.");
         }
@@ -139,7 +123,7 @@ public class CampaignService implements ICampaignService
     }
 
     @Override
-    public CampaignResponse updateCampaign(int id, UpdateCampaignRequest updateRequest) {
+    public Campaign updateCampaign(int id, UpdateCampaignRequest updateRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authService.isAuthenticationValid(authentication)) {
             return null;
@@ -150,7 +134,7 @@ public class CampaignService implements ICampaignService
         if (campaignAuthorizationService.isOwner(campaign, user)) {
             campaign.setName(updateRequest.getName());
             campaign.setDescription(updateRequest.getDescription());
-            return campaignMapper.toCampaignResponse(entityMapper.toDomain(campaignRepository.save(entityMapper.toEntity(campaign))));
+            return entityMapper.toDomain(campaignRepository.save(entityMapper.toEntity(campaign)));
         }
         return null;
     }
