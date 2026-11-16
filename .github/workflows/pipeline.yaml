@@ -24,4 +24,4 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
           SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
-        run: ./gradlew sonar "-Dsonar.organization=$SONAR_ORGANIZATION" -Dsonar.qualitygate.wait=true
+        run: ./gradlew sonar "-Dsonar.organization=$SONAR_ORGANIZATION" -Dsonar.projectKey=Campaign-Manager -Dsonar.qualitygate.wait=true
