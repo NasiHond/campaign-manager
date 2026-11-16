@@ -3,8 +3,6 @@ package com.fhict.campaignmanager.service;
 import com.fhict.campaignmanager.domain.User;
 import com.fhict.campaignmanager.dto.CreateUserRequest;
 import com.fhict.campaignmanager.dto.UpdateUserRequest;
-import com.fhict.campaignmanager.dto.UserResponse;
-import com.fhict.campaignmanager.mapper.UserMapper;
 import com.fhict.campaignmanager.repository.UserRepository;
 import com.fhict.campaignmanager.mapper.DomainEntityMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,39 +12,37 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserService implements IUserService
 {
-    private final UserMapper userMapper;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final DomainEntityMapper entityMapper;
 
     @Autowired
-    public UserService(UserMapper userMapper, UserRepository userRepository, PasswordEncoder passwordEncoder,
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        DomainEntityMapper entityMapper) {
-        this.userMapper = userMapper;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.entityMapper = entityMapper;
     }
 
-    public UserService(UserMapper userMapper, UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this(userMapper, userRepository, passwordEncoder, new DomainEntityMapper());
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this(userRepository, passwordEncoder, new DomainEntityMapper());
     }
 
     @Override
-    public UserResponse createUser(CreateUserRequest createUserRequest) {
-        User user = userMapper.toUser(createUserRequest);
+    public User createUser(CreateUserRequest createUserRequest) {
+        User user = User.builder()
+                .username(createUserRequest.getUsername())
+                .email(createUserRequest.getEmail())
+                .password(createUserRequest.getPassword())
+                .build();
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        return userMapper.toUserResponse(entityMapper.toDomain(userRepository.save(entityMapper.toEntity(user))));
+        return entityMapper.toDomain(userRepository.save(entityMapper.toEntity(user)));
     }
 
     @Override
-    public UserResponse getUser(int id) {
-        User user = entityMapper.toDomain(userRepository.findById(id).orElse(null));
-        if (user != null) {
-            return userMapper.toUserResponse(user);
-        }
-        return null;
+    public User getUser(int id) {
+        return entityMapper.toDomain(userRepository.findById(id).orElse(null));
     }
 
     @Override
@@ -65,14 +61,13 @@ public class UserService implements IUserService
     }
 
     @Override
-    public UserResponse updateUser(int id, UpdateUserRequest updateUserRequest) {
+    public User updateUser(int id, UpdateUserRequest updateUserRequest) {
         User user = entityMapper.toDomain(userRepository.findById(id).orElse(null));
         if (user != null)
         {
             user.setUsername(updateUserRequest.getUsername());
             user.setEmail(updateUserRequest.getEmail());
-            User updatedUser = entityMapper.toDomain(userRepository.save(entityMapper.toEntity(user)));
-            return userMapper.toUserResponse(updatedUser);
+            return entityMapper.toDomain(userRepository.save(entityMapper.toEntity(user)));
         }
         return null;
     }

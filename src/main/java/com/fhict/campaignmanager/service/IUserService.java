@@ -3,13 +3,12 @@ package com.fhict.campaignmanager.service;
 import com.fhict.campaignmanager.domain.User;
 import com.fhict.campaignmanager.dto.CreateUserRequest;
 import com.fhict.campaignmanager.dto.UpdateUserRequest;
-import com.fhict.campaignmanager.dto.UserResponse;
 
 public interface IUserService
 {
-    UserResponse createUser(CreateUserRequest createUserRequest);
+    User createUser(CreateUserRequest createUserRequest);
 
-    UserResponse getUser(int id);
+    User getUser(int id);
 
     User getUserById(int id);
 
@@ -17,7 +16,7 @@ public interface IUserService
 
     User getUserByEmail(String email);
 
-    UserResponse updateUser(int id, UpdateUserRequest updateUserRequest);
+    User updateUser(int id, UpdateUserRequest updateUserRequest);
 
     void deleteUser(int id);
 

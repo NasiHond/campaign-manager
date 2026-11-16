@@ -30,13 +30,13 @@ public class DomainEntityMapper {
                 e.getParticipantEntities().add(new CampaignParticipantEntity(0, e, toEntity(user), role)));
         return e;
     }
-    public CampaignInvitation toDomain(CampaignInvitationEntity e) {
-        return e == null ? null : CampaignInvitation.builder().id(e.getId())
+    public CampaignInvite toDomain(CampaignInvitationEntity e) {
+        return e == null ? null : CampaignInvite.builder().id(e.getId())
                 .campaign(toDomain(e.getCampaign())).invitedBy(toDomain(e.getInvitedBy()))
                 .invitedUser(toDomain(e.getInvitedUser())).role(e.getRole()).status(e.getStatus())
                 .expiresAt(e.getExpiresAt()).build();
     }
-    public CampaignInvitationEntity toEntity(CampaignInvitation d) {
+    public CampaignInvitationEntity toEntity(CampaignInvite d) {
         return d == null ? null : CampaignInvitationEntity.builder().id(d.getId())
                 .campaign(toEntity(d.getCampaign())).invitedBy(toEntity(d.getInvitedBy()))
                 .invitedUser(toEntity(d.getInvitedUser())).role(d.getRole()).status(d.getStatus())

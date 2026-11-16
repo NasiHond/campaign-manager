@@ -1,13 +1,11 @@
 package com.fhict.campaignmanager.service;
 
-import com.fhict.campaignmanager.domain.CampaignInvitation;
+import com.fhict.campaignmanager.domain.CampaignInvite;
 import com.fhict.campaignmanager.domain.Campaign;
-import com.fhict.campaignmanager.domain.InvitationStatus;
+import com.fhict.campaignmanager.domain.InviteStatus;
 import com.fhict.campaignmanager.domain.Role;
 import com.fhict.campaignmanager.domain.User;
 import com.fhict.campaignmanager.dto.CreateInviteRequest;
-import com.fhict.campaignmanager.dto.InviteResponse;
-import com.fhict.campaignmanager.mapper.InviteMapper;
 import com.fhict.campaignmanager.repository.CampaignRepository;
 import com.fhict.campaignmanager.repository.InviteRepository;
 import com.fhict.campaignmanager.mapper.DomainEntityMapper;
@@ -31,27 +29,25 @@ public class InviteService implements IInviteService{
     private final CampaignRepository campaignRepository;
     private final IAuthService authService;
     private final IUserService userService;
-    private final InviteMapper inviteMapper;
     private final CampaignAuthorizationService campaignAuthorizationService;
     private final DomainEntityMapper entityMapper;
 
     @Autowired
     public InviteService(InviteRepository inviteRepository, CampaignRepository campaignRepository,
-                         IAuthService authService, IUserService userService, InviteMapper inviteMapper,
+                         IAuthService authService, IUserService userService,
                          CampaignAuthorizationService campaignAuthorizationService,
                          DomainEntityMapper entityMapper) {
         this.inviteRepository = inviteRepository;
         this.campaignRepository = campaignRepository;
         this.authService = authService;
         this.userService = userService;
-        this.inviteMapper = inviteMapper;
         this.campaignAuthorizationService = campaignAuthorizationService;
         this.entityMapper = entityMapper;
     }
 
     public InviteService(InviteRepository inviteRepository, CampaignRepository campaignRepository,
-                         IAuthService authService, IUserService userService, InviteMapper inviteMapper) {
-        this(inviteRepository, campaignRepository, authService, userService, inviteMapper,
+                         IAuthService authService, IUserService userService) {
+        this(inviteRepository, campaignRepository, authService, userService,
                 new CampaignAuthorizationService(), new DomainEntityMapper());
     }
 
@@ -86,12 +82,12 @@ public class InviteService implements IInviteService{
             throw new IllegalArgumentException("Only campaign owners can send invites");
         }
 
-        CampaignInvitation invitation = CampaignInvitation.builder()
+        CampaignInvite invitation = CampaignInvite.builder()
                 .campaign(campaign)
                 .invitedBy(invitedBy)
                 .invitedUser(invitedUser)
                 .role(Role.valueOf(role))
-                .status(InvitationStatus.PENDING)
+                .status(InviteStatus.PENDING)
                 .expiresAt(Instant.now().plus(INVITE_EXPIRATION))
                 .build();
 
@@ -99,46 +95,46 @@ public class InviteService implements IInviteService{
     }
 
     @Override
-    public InviteResponse getInvite(int inviteId) {
+    public CampaignInvite getInvite(int inviteId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authService.isAuthenticationValid(authentication)) {
             return null;
         }
 
-        CampaignInvitation invitation = entityMapper.toDomain(inviteRepository.findById(inviteId).orElse(null));
-        if (invitation == null) {
+        CampaignInvite invite = entityMapper.toDomain(inviteRepository.findById(inviteId).orElse(null));
+        if (invite == null) {
             return null;
         }
-        expireIfNecessary(invitation);
+        expireIfNecessary(invite);
 
         User user = userService.getUserByUsername(authentication.getName());
-        if (user == null || invitation.getInvitedUser().getId() != user.getId()) {
+        if (user == null || invite.getInvitedUser().getId() != user.getId()) {
             return null;
         }
 
-        return inviteMapper.toInviteResponse(invitation);
+        return invite;
     }
 
     @Override
-    public List<InviteResponse> getAllInvitesForUser() {
+    public List<CampaignInvite> getAllInvitesForUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authService.isAuthenticationValid(authentication)) {
             return null;
         }
 
         User user = userService.getUserByUsername(authentication.getName());
-        List<CampaignInvitation> invitations = inviteRepository.findAllByInvitedUser_Id(user.getId()).stream()
+        List<CampaignInvite> invitations = inviteRepository.findAllByInvitedUser_Id(user.getId()).stream()
                 .map(entityMapper::toDomain).toList();
         return invitations.stream()
-                .map(invitation -> {
-                    expireIfNecessary(invitation);
-                    return inviteMapper.toInviteResponse(invitation);
+                .map(invite -> {
+                    expireIfNecessary(invite);
+                    return invite;
                 })
                 .toList();
     }
 
     @Override
-    public List<InviteResponse> getAllInvitesForCampaign(int campaignId) {
+    public List<CampaignInvite> getAllInvitesForCampaign(int campaignId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authService.isAuthenticationValid(authentication)) {
             return List.of();
@@ -151,9 +147,9 @@ public class InviteService implements IInviteService{
         }
 
         return inviteRepository.findAllByCampaign_Id(campaignId).stream().map(entityMapper::toDomain)
-                .map(invitation -> {
-                    expireIfNecessary(invitation);
-                    return inviteMapper.toInviteResponse(invitation);
+                .map(invite -> {
+                    expireIfNecessary(invite);
+                    return invite;
                 })
                 .toList();
     }
@@ -166,23 +162,23 @@ public class InviteService implements IInviteService{
         }
 
         CampaignInvitationEntity invitationEntity = inviteRepository.findById(inviteId).orElse(null);
-        CampaignInvitation invitation = entityMapper.toDomain(invitationEntity);
-        if (invitation == null) {
+        CampaignInvite invite = entityMapper.toDomain(invitationEntity);
+        if (invite == null) {
             throw new IllegalArgumentException("Invite does not exist");
         }
-        expireIfNecessary(invitation);
+        expireIfNecessary(invite);
 
         User user = userService.getUserByUsername(authentication.getName());
-        if (user == null || invitation.getInvitedUser().getId() != user.getId()) {
+        if (user == null || invite.getInvitedUser().getId() != user.getId()) {
             throw new IllegalArgumentException("You are not authorized to accept this invite");
         }
 
-        if (invitation.getStatus() != InvitationStatus.PENDING) {
-            throw new IllegalArgumentException("Invite is not valid for acceptance. Current status: " + invitation.getStatus());
+        if (invite.getStatus() != InviteStatus.PENDING) {
+            throw new IllegalArgumentException("Invite is not valid for acceptance. Current status: " + invite.getStatus());
         }
 
-        invitation.setStatus(InvitationStatus.ACCEPTED);
-        invitationEntity.setStatus(InvitationStatus.ACCEPTED);
+        invite.setStatus(InviteStatus.ACCEPTED);
+        invitationEntity.setStatus(InviteStatus.ACCEPTED);
         inviteRepository.save(invitationEntity);
 
         var campaignEntity = invitationEntity.getCampaign();
@@ -205,19 +201,19 @@ public class InviteService implements IInviteService{
             throw new IllegalStateException("Authentication is required to decline an invite");
         }
 
-        CampaignInvitation invitation = entityMapper.toDomain(inviteRepository.findById(inviteId).orElse(null));
-        if (invitation == null) {
+        CampaignInvite invite = entityMapper.toDomain(inviteRepository.findById(inviteId).orElse(null));
+        if (invite == null) {
             throw new IllegalArgumentException("Invite does not exist");
         }
-        expireIfNecessary(invitation);
+        expireIfNecessary(invite);
 
         User user = userService.getUserByUsername(authentication.getName());
-        if (user == null || invitation.getInvitedUser().getId() != user.getId()) {
+        if (user == null || invite.getInvitedUser().getId() != user.getId()) {
             throw new IllegalArgumentException("You are not authorized to decline this invite");
         }
 
-        invitation.setStatus(InvitationStatus.DECLINED);
-        inviteRepository.save(entityMapper.toEntity(invitation));
+        invite.setStatus(InviteStatus.DECLINED);
+        inviteRepository.save(entityMapper.toEntity(invite));
     }
 
     @Override
@@ -227,31 +223,31 @@ public class InviteService implements IInviteService{
             throw new IllegalStateException("Authentication is required to revoke an invite");
         }
 
-        CampaignInvitation invitation = entityMapper.toDomain(inviteRepository.findById(inviteId).orElse(null));
-        if (invitation == null) {
+        CampaignInvite invite = entityMapper.toDomain(inviteRepository.findById(inviteId).orElse(null));
+        if (invite == null) {
             throw new IllegalArgumentException("Invite does not exist");
         }
-        expireIfNecessary(invitation);
+        expireIfNecessary(invite);
 
         User user = userService.getUserByUsername(authentication.getName());
-        if (user == null || invitation.getInvitedBy().getId() != user.getId()) {
+        if (user == null || invite.getInvitedBy().getId() != user.getId()) {
             throw new IllegalArgumentException("Only the inviter can revoke this invite");
         }
-        if (invitation.getStatus() != InvitationStatus.PENDING) {
+        if (invite.getStatus() != InviteStatus.PENDING) {
             throw new IllegalArgumentException("Invite is not valid for revocation. Current status: "
-                    + invitation.getStatus());
+                    + invite.getStatus());
         }
 
-        invitation.setStatus(InvitationStatus.REVOKED);
-        inviteRepository.save(entityMapper.toEntity(invitation));
+        invite.setStatus(InviteStatus.REVOKED);
+        inviteRepository.save(entityMapper.toEntity(invite));
     }
 
-    private void expireIfNecessary(CampaignInvitation invitation) {
-        if (invitation.getStatus() == InvitationStatus.PENDING
-                && invitation.getExpiresAt() != null
-                && !Instant.now().isBefore(invitation.getExpiresAt())) {
-            invitation.setStatus(InvitationStatus.EXPIRED);
-            inviteRepository.save(entityMapper.toEntity(invitation));
+    private void expireIfNecessary(CampaignInvite invite) {
+        if (invite.getStatus() == InviteStatus.PENDING
+                && invite.getExpiresAt() != null
+                && !Instant.now().isBefore(invite.getExpiresAt())) {
+            invite.setStatus(InviteStatus.EXPIRED);
+            inviteRepository.save(entityMapper.toEntity(invite));
         }
     }
 }

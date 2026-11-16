@@ -10,12 +10,12 @@ import java.time.Instant;
 @AllArgsConstructor
 @Builder(toBuilder = true)
 @EqualsAndHashCode
-public class CampaignInvitation {
+public class CampaignInvite {
     private int id;
     private Campaign campaign;
     private User invitedBy;
     private User invitedUser;
     private Role role;
-    private InvitationStatus status;
+    private InviteStatus status;
     private Instant expiresAt;
 }
