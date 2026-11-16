@@ -22,6 +22,7 @@ jobs:
       - name: Test and coverage
         run: ./gradlew test jacocoTestReport
       - name: SonarQube Analysis
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
