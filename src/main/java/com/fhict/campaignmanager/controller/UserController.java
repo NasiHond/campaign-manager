@@ -5,6 +5,8 @@ import com.fhict.campaignmanager.dto.CreateUserRequest;
 import com.fhict.campaignmanager.dto.LoginResponse;
 import com.fhict.campaignmanager.dto.UpdateUserRequest;
 import com.fhict.campaignmanager.dto.UserResponse;
+import com.fhict.campaignmanager.mapper.AuthMapper;
+import com.fhict.campaignmanager.mapper.UserMapper;
 import com.fhict.campaignmanager.service.UserService;
 import com.fhict.campaignmanager.service.IAuthService;
 import org.slf4j.Logger;
@@ -16,11 +18,15 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/users")
 public class UserController {
     private final UserService userService;
+    private final UserMapper userMapper;
+    private final AuthMapper authMapper;
     private final IAuthService authService;
     private static final Logger LOGGER = LoggerFactory.getLogger(UserController.class);
 
-    public UserController(UserService userService, IAuthService authService) {
+    public UserController(UserService userService, UserMapper userMapper, AuthMapper authMapper, IAuthService authService) {
         this.userService = userService;
+        this.userMapper = userMapper;
+        this.authMapper = authMapper;
         this.authService = authService;
     }
 
@@ -28,8 +34,10 @@ public class UserController {
     @PostMapping
     public LoginResponse createUser(@RequestBody CreateUserRequest createUserRequest)
     {
-        LOGGER.info("Received request to create user: {}", createUserRequest);
-        return authService.register(createUserRequest);
+        LOGGER.info("Received request to create user with username: {}", createUserRequest.getUsername());
+        User createdUser = userService.createUser(createUserRequest);
+        String token = authService.createToken(createdUser);
+        return authMapper.toLoginResponse(token, 3600, "Bearer");
     }
 
     @CrossOrigin
@@ -37,7 +45,7 @@ public class UserController {
     public UserResponse getUser(@PathVariable int id)
     {
         LOGGER.info("Received request to get user with id: {}", id);
-        return userService.getUser(id);
+        return userMapper.toUserResponse(userService.getUser(id));
     }
 
     @CrossOrigin
@@ -45,7 +53,7 @@ public class UserController {
     public UserResponse updateUser(@PathVariable int id, @RequestBody UpdateUserRequest updateUserRequest)
     {
         LOGGER.info("Received request to update user with id: {}", id);
-        return userService.updateUser(id, updateUserRequest);
+        return userMapper.toUserResponse(userService.updateUser(id, updateUserRequest));
     }
 
     @CrossOrigin

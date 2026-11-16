@@ -1,15 +1,14 @@
 package com.fhict.campaignmanager.service;
 
+import com.fhict.campaignmanager.domain.User;
 import com.fhict.campaignmanager.dto.LoginRequest;
-import com.fhict.campaignmanager.dto.LoginResponse;
-import com.fhict.campaignmanager.dto.CreateUserRequest;
 import org.springframework.security.core.Authentication;
 
 public interface IAuthService
 {
-    LoginResponse login(LoginRequest loginRequest);
+    String login(LoginRequest loginRequest);
 
-    LoginResponse register(CreateUserRequest createUserRequest);
+    String createToken(User user);
 
     /**
      * Verifies that the supplied request authentication represents an existing user.

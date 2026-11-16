@@ -1,6 +1,6 @@
 package com.fhict.campaignmanager.domain;
 
-public enum InvitationStatus {
+public enum InviteStatus {
     PENDING,
     ACCEPTED,
     DECLINED,

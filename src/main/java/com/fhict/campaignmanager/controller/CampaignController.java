@@ -5,6 +5,7 @@ import com.fhict.campaignmanager.dto.CampaignResponse;
 import com.fhict.campaignmanager.dto.CreateCampaignRequest;
 import com.fhict.campaignmanager.dto.UpdateCampaignRequest;
 import com.fhict.campaignmanager.mapper.CampaignMapper;
+import com.fhict.campaignmanager.mapper.InviteMapper;
 import com.fhict.campaignmanager.service.ICampaignService;
 import com.fhict.campaignmanager.service.IInviteService;
 import org.springframework.web.bind.annotation.*;
@@ -17,12 +18,14 @@ public class CampaignController {
     private final ICampaignService campaignService;
     private final CampaignMapper campaignMapper;
     private final IInviteService inviteService;
+    private final InviteMapper inviteMapper;
 
     public CampaignController(ICampaignService campaignService, CampaignMapper campaignMapper,
-                              IInviteService inviteService) {
+                              IInviteService inviteService, InviteMapper inviteMapper) {
         this.campaignService = campaignService;
         this.campaignMapper = campaignMapper;
         this.inviteService = inviteService;
+        this.inviteMapper = inviteMapper;
     }
 
     @CrossOrigin
@@ -36,7 +39,9 @@ public class CampaignController {
     public CampaignResponse getCampaign(@PathVariable int id) {
         CampaignResponse campaign = campaignMapper.toCampaignResponse(campaignService.getCampaign(id));
         if (campaign != null) {
-            campaign.setInvites(inviteService.getAllInvitesForCampaign(id));
+            campaign.setInvites(inviteService.getAllInvitesForCampaign(id).stream()
+                    .map(inviteMapper::toInviteResponse)
+                    .toList());
         }
         return campaign;
     }

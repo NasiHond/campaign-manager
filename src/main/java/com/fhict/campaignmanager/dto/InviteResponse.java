@@ -1,6 +1,6 @@
 package com.fhict.campaignmanager.dto;
 
-import com.fhict.campaignmanager.domain.InvitationStatus;
+import com.fhict.campaignmanager.domain.InviteStatus;
 import com.fhict.campaignmanager.domain.Role;
 import lombok.*;
 
@@ -17,6 +17,6 @@ public class InviteResponse {
     private UserResponse invitedBy;
     private UserResponse invitedUser;
     private Role role;
-    private InvitationStatus invitationStatus;
+    private InviteStatus inviteStatus;
     private Instant expiresAt;
 }

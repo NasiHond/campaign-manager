@@ -1,7 +1,7 @@
 package com.fhict.campaignmanager.service;
 
+import com.fhict.campaignmanager.domain.CampaignInvite;
 import com.fhict.campaignmanager.dto.CreateInviteRequest;
-import com.fhict.campaignmanager.dto.InviteResponse;
 
 import java.util.List;
 
@@ -9,11 +9,11 @@ public interface IInviteService {
 
     void sendInvite(CreateInviteRequest inviteRequest);
 
-    InviteResponse getInvite(int inviteId);
+    CampaignInvite getInvite(int inviteId);
 
-    List<InviteResponse> getAllInvitesForUser();
+    List<CampaignInvite> getAllInvitesForUser();
 
-    List<InviteResponse> getAllInvitesForCampaign(int campaignId);
+    List<CampaignInvite> getAllInvitesForCampaign(int campaignId);
 
     void acceptInvite(int inviteId);
 

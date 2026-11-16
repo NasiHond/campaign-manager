@@ -23,7 +23,7 @@ public class CampaignInvitationEntity {
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
     private Role role;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
-    private InvitationStatus status;
+    private InviteStatus status;
     @Column(nullable = false)
     private Instant expiresAt;
 }

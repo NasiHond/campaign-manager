@@ -1,13 +1,11 @@
 package com.fhict.campaignmanager.unitTests;
 
 import com.fhict.campaignmanager.domain.Campaign;
-import com.fhict.campaignmanager.domain.CampaignInvitation;
-import com.fhict.campaignmanager.domain.InvitationStatus;
+import com.fhict.campaignmanager.domain.CampaignInvite;
+import com.fhict.campaignmanager.domain.InviteStatus;
 import com.fhict.campaignmanager.domain.Role;
 import com.fhict.campaignmanager.domain.User;
 import com.fhict.campaignmanager.dto.CreateInviteRequest;
-import com.fhict.campaignmanager.dto.InviteResponse;
-import com.fhict.campaignmanager.mapper.InviteMapper;
 import com.fhict.campaignmanager.mapper.DomainEntityMapper;
 import com.fhict.campaignmanager.persistence.entity.CampaignEntity;
 import com.fhict.campaignmanager.persistence.entity.CampaignInvitationEntity;
@@ -16,14 +14,12 @@ import com.fhict.campaignmanager.repository.InviteRepository;
 import com.fhict.campaignmanager.service.IAuthService;
 import com.fhict.campaignmanager.service.IUserService;
 import com.fhict.campaignmanager.service.InviteService;
-import com.fhict.campaignmanager.service.CampaignAuthorizationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -52,8 +48,7 @@ class InviteServiceTest {
     @Mock private CampaignRepository campaignRepository;
     @Mock private IAuthService authService;
     @Mock private IUserService userService;
-    @Mock private InviteMapper inviteMapper;
-    @Spy private DomainEntityMapper entityMapper = new DomainEntityMapper();
+    private final DomainEntityMapper entityMapper = new DomainEntityMapper();
 
     private InviteService inviteService;
     private User owner;
@@ -63,8 +58,7 @@ class InviteServiceTest {
     @BeforeEach
     void setUp() {
         inviteService = new InviteService(
-                inviteRepository, campaignRepository, authService, userService, inviteMapper,
-                new CampaignAuthorizationService(), entityMapper);
+                inviteRepository, campaignRepository, authService, userService);
         owner = User.builder().id(1).username("owner").build();
         invitedUser = User.builder().id(2).username("invitee").email("invitee@example.com").build();
         campaign = Campaign.builder()
@@ -95,12 +89,12 @@ class InviteServiceTest {
 
         ArgumentCaptor<CampaignInvitationEntity> captor = ArgumentCaptor.forClass(CampaignInvitationEntity.class);
         verify(inviteRepository).save(captor.capture());
-        CampaignInvitation saved = entityMapper.toDomain(captor.getValue());
+        CampaignInvite saved = entityMapper.toDomain(captor.getValue());
         assertEquals(campaign, saved.getCampaign());
         assertEquals(owner, saved.getInvitedBy());
         assertEquals(invitedUser, saved.getInvitedUser());
         assertEquals(Role.AUTHOR, saved.getRole());
-        assertEquals(InvitationStatus.PENDING, saved.getStatus());
+        assertEquals(InviteStatus.PENDING, saved.getStatus());
         assertNotNull(saved.getExpiresAt());
         assertTrueAfterNow(saved.getExpiresAt());
     }
@@ -169,17 +163,14 @@ class InviteServiceTest {
     }
 
     @Test
-    void getInvite_forInvitedUser_returnsMappedResponse() {
+    void getInvite_forInvitedUser_returnsDomainInvite() {
         authenticateAs("invitee");
-        CampaignInvitation invitation = invitation(InvitationStatus.PENDING, Instant.now().plusSeconds(60));
-        InviteResponse response = InviteResponse.builder().id(5).role(Role.AUTHOR).build();
+        CampaignInvite invitation = invitation(InviteStatus.PENDING, Instant.now().plusSeconds(60));
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(inviteRepository.findById(5)).thenReturn(Optional.of(entity(invitation)));
         when(userService.getUserByUsername("invitee")).thenReturn(invitedUser);
-        when(inviteMapper.toInviteResponse(invitation)).thenReturn(response);
 
-        assertEquals(response, inviteService.getInvite(5));
-        verify(inviteMapper).toInviteResponse(invitation);
+        assertEquals(invitation, inviteService.getInvite(5));
     }
 
     @Test
@@ -189,45 +180,43 @@ class InviteServiceTest {
         when(inviteRepository.findById(99)).thenReturn(Optional.empty());
         assertNull(inviteService.getInvite(99));
 
-        CampaignInvitation invitation = invitation(InvitationStatus.PENDING, Instant.now().plusSeconds(60));
+        CampaignInvite invitation = invitation(InviteStatus.PENDING, Instant.now().plusSeconds(60));
         when(inviteRepository.findById(5)).thenReturn(Optional.of(entity(invitation)));
         when(userService.getUserByUsername("invitee")).thenReturn(
                 User.builder().id(3).username("other").build());
         assertNull(inviteService.getInvite(5));
-        verifyNoInteractions(inviteMapper);
     }
 
     @Test
-    void getAllInvitesForUser_expiresPendingInvitesAndMapsResults() {
+    void getAllInvitesForUser_expiresPendingInvitesAndReturnsDomainInvites() {
         authenticateAs("invitee");
-        CampaignInvitation expired = invitation(InvitationStatus.PENDING, Instant.now().minusSeconds(1));
-        CampaignInvitation active = invitation(InvitationStatus.PENDING, Instant.now().plusSeconds(60));
-        InviteResponse expiredResponse = InviteResponse.builder().id(1).build();
-        InviteResponse activeResponse = InviteResponse.builder().id(2).build();
+        CampaignInvite expired = invitation(InviteStatus.PENDING, Instant.now().minusSeconds(1));
+        CampaignInvite active = invitation(InviteStatus.PENDING, Instant.now().plusSeconds(60));
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(userService.getUserByUsername("invitee")).thenReturn(invitedUser);
         when(inviteRepository.findAllByInvitedUser_Id(2)).thenReturn(List.of(entity(expired), entity(active)));
-        when(inviteMapper.toInviteResponse(any(CampaignInvitation.class)))
-                .thenReturn(expiredResponse, activeResponse);
 
-        assertEquals(List.of(expiredResponse, activeResponse), inviteService.getAllInvitesForUser());
+        List<CampaignInvite> result = inviteService.getAllInvitesForUser();
+        assertEquals(2, result.size());
+        assertEquals(5, result.get(0).getId());
+        assertEquals(5, result.get(1).getId());
+        assertEquals(InviteStatus.EXPIRED, result.get(0).getStatus());
+        assertEquals(InviteStatus.PENDING, result.get(1).getStatus());
         ArgumentCaptor<CampaignInvitationEntity> saved = ArgumentCaptor.forClass(CampaignInvitationEntity.class);
         verify(inviteRepository).save(saved.capture());
-        assertEquals(InvitationStatus.EXPIRED, new DomainEntityMapper().toDomain(saved.getValue()).getStatus());
+        assertEquals(InviteStatus.EXPIRED, new DomainEntityMapper().toDomain(saved.getValue()).getStatus());
     }
 
     @Test
-    void getAllInvitesForCampaign_returnsInvitesOnlyForOwner() {
+    void getAllInvitesForCampaign_returnsDomainInvitesOnlyForOwner() {
         authenticateAs("owner");
-        CampaignInvitation invitation = invitation(InvitationStatus.PENDING, Instant.now().plusSeconds(60));
-        InviteResponse response = InviteResponse.builder().id(1).build();
+        CampaignInvite invitation = invitation(InviteStatus.PENDING, Instant.now().plusSeconds(60));
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(campaign)));
         when(userService.getUserByUsername("owner")).thenReturn(owner);
         when(inviteRepository.findAllByCampaign_Id(10)).thenReturn(List.of(entity(invitation)));
-        when(inviteMapper.toInviteResponse(invitation)).thenReturn(response);
 
-        assertEquals(List.of(response), inviteService.getAllInvitesForCampaign(10));
+        assertEquals(List.of(invitation), inviteService.getAllInvitesForCampaign(10));
 
         when(campaignRepository.findById(10)).thenReturn(Optional.of(entity(
                 campaign.toBuilder().participants(new HashMap<>(Map.of(invitedUser, Role.AUTHOR))).build())));
@@ -238,7 +227,7 @@ class InviteServiceTest {
     @Test
     void acceptInvite_updatesStatusAndAddsUserToCampaign() {
         authenticateAs("invitee");
-        CampaignInvitation invitation = invitation(InvitationStatus.PENDING, Instant.now().plusSeconds(60));
+        CampaignInvite invitation = invitation(InviteStatus.PENDING, Instant.now().plusSeconds(60));
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(inviteRepository.findById(5)).thenReturn(Optional.of(entity(invitation)));
         when(userService.getUserByUsername("invitee")).thenReturn(invitedUser);
@@ -247,7 +236,7 @@ class InviteServiceTest {
 
         ArgumentCaptor<CampaignInvitationEntity> savedInvite = ArgumentCaptor.forClass(CampaignInvitationEntity.class);
         verify(inviteRepository).save(savedInvite.capture());
-        assertEquals(InvitationStatus.ACCEPTED, savedInvite.getValue().getStatus());
+        assertEquals(InviteStatus.ACCEPTED, savedInvite.getValue().getStatus());
         ArgumentCaptor<CampaignEntity> savedCampaign = ArgumentCaptor.forClass(CampaignEntity.class);
         verify(campaignRepository).save(savedCampaign.capture());
         assertEquals(Role.AUTHOR,
@@ -257,7 +246,7 @@ class InviteServiceTest {
     @Test
     void acceptInvite_rejectsExpiredOrAlreadyHandledInvite() {
         authenticateAs("invitee");
-        CampaignInvitation invitation = invitation(InvitationStatus.PENDING, Instant.now().minusSeconds(1));
+        CampaignInvite invitation = invitation(InviteStatus.PENDING, Instant.now().minusSeconds(1));
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(inviteRepository.findById(5)).thenReturn(Optional.of(entity(invitation)));
         when(userService.getUserByUsername("invitee")).thenReturn(invitedUser);
@@ -272,7 +261,7 @@ class InviteServiceTest {
     @Test
     void declineInvite_marksInviteAsDeclined() {
         authenticateAs("invitee");
-        CampaignInvitation invitation = invitation(InvitationStatus.PENDING, Instant.now().plusSeconds(60));
+        CampaignInvite invitation = invitation(InviteStatus.PENDING, Instant.now().plusSeconds(60));
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(inviteRepository.findById(5)).thenReturn(Optional.of(entity(invitation)));
         when(userService.getUserByUsername("invitee")).thenReturn(invitedUser);
@@ -281,13 +270,13 @@ class InviteServiceTest {
 
         ArgumentCaptor<CampaignInvitationEntity> saved = ArgumentCaptor.forClass(CampaignInvitationEntity.class);
         verify(inviteRepository).save(saved.capture());
-        assertEquals(InvitationStatus.DECLINED, saved.getValue().getStatus());
+        assertEquals(InviteStatus.DECLINED, saved.getValue().getStatus());
     }
 
     @Test
     void revokeInvite_marksPendingInviteAsRevoked() {
         authenticateAs("owner");
-        CampaignInvitation invitation = invitation(InvitationStatus.PENDING, Instant.now().plusSeconds(60));
+        CampaignInvite invitation = invitation(InviteStatus.PENDING, Instant.now().plusSeconds(60));
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(inviteRepository.findById(5)).thenReturn(Optional.of(entity(invitation)));
         when(userService.getUserByUsername("owner")).thenReturn(owner);
@@ -296,13 +285,13 @@ class InviteServiceTest {
 
         ArgumentCaptor<CampaignInvitationEntity> saved = ArgumentCaptor.forClass(CampaignInvitationEntity.class);
         verify(inviteRepository).save(saved.capture());
-        assertEquals(InvitationStatus.REVOKED, saved.getValue().getStatus());
+        assertEquals(InviteStatus.REVOKED, saved.getValue().getStatus());
     }
 
     @Test
     void revokeInvite_rejectsNonInviterAndNonPendingInvite() {
         authenticateAs("invitee");
-        CampaignInvitation invitation = invitation(InvitationStatus.PENDING, Instant.now().plusSeconds(60));
+        CampaignInvite invitation = invitation(InviteStatus.PENDING, Instant.now().plusSeconds(60));
         when(authService.isAuthenticationValid(any())).thenReturn(true);
         when(inviteRepository.findById(5)).thenReturn(Optional.of(entity(invitation)));
         when(userService.getUserByUsername("invitee")).thenReturn(invitedUser);
@@ -312,7 +301,7 @@ class InviteServiceTest {
         assertEquals("Only the inviter can revoke this invite", unauthorized.getMessage());
 
         authenticateAs("owner");
-        CampaignInvitation handledInvite = invitation.toBuilder().status(InvitationStatus.ACCEPTED).build();
+        CampaignInvite handledInvite = invitation.toBuilder().status(InviteStatus.ACCEPTED).build();
         when(inviteRepository.findById(5)).thenReturn(Optional.of(entity(handledInvite)));
         when(userService.getUserByUsername("owner")).thenReturn(owner);
         IllegalArgumentException handled = assertThrows(IllegalArgumentException.class,
@@ -322,10 +311,10 @@ class InviteServiceTest {
 
     private CampaignEntity entity(Campaign campaign) { return new DomainEntityMapper().toEntity(campaign); }
 
-    private CampaignInvitationEntity entity(CampaignInvitation invitation) { return new DomainEntityMapper().toEntity(invitation); }
+    private CampaignInvitationEntity entity(CampaignInvite invitation) { return new DomainEntityMapper().toEntity(invitation); }
 
-    private CampaignInvitation invitation(InvitationStatus status, Instant expiresAt) {
-        return CampaignInvitation.builder()
+    private CampaignInvite invitation(InviteStatus status, Instant expiresAt) {
+        return CampaignInvite.builder()
                 .id(5)
                 .campaign(campaign)
                 .invitedBy(owner)
