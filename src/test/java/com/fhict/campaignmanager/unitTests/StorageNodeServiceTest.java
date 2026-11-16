@@ -14,6 +14,7 @@ import com.fhict.campaignmanager.service.ICampaignService;
 import com.fhict.campaignmanager.service.IAuthService;
 import com.fhict.campaignmanager.service.IUserService;
 import com.fhict.campaignmanager.service.StorageNodeService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -38,6 +39,11 @@ class StorageNodeServiceTest {
     @Mock private ICampaignService campaignService;
     @Mock private DomainEntityMapper entityMapper;
     @InjectMocks private StorageNodeService storageNodeService;
+
+    @AfterEach
+    void clearSecutityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void getStorageNodesForCampaign_returnsNodesForAuthenticatedUser() {
@@ -88,10 +94,41 @@ class StorageNodeServiceTest {
         verify(storageNodeRepository, never()).findAllByCampaignId(anyInt());
     }
 
+    @Test
+    void getStorageNodes_withDifferentParticipant_returnsNull() {
+        setAuthenticatedUser("testuser");
+
+        User user = User.builder().id(1).username("testuser").build();
+        User otherUser = User.builder().id(2).username("otheruser").build();
+
+        Campaign campaign = Campaign.builder()
+                .id(10)
+                .participants(java.util.Map.of(otherUser, Role.PARTICIPANT))
+                .build();
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(campaignService.getCampaign(10)).thenReturn(campaign);
+
+        assertNull(storageNodeService.getStorageNodesForCampaign(10));
+
+        verify(storageNodeRepository, never()).findAllByCampaignId(anyInt());
+    }
+
     @Test void getStorageNodes_withoutAuthentication_returnsNull()
     {
         List<StorageNode> result = storageNodeService.getStorageNodesForCampaign(10);
         assertNull(result);
+    }
+
+    @Test
+    void getStorageNodes_withInvalidAuthentication_returnsNull() {
+        setAuthenticatedUser("testuser");
+        when(authService.isAuthenticationValid(any())).thenReturn(false);
+
+        assertNull(storageNodeService.getStorageNodesForCampaign(10));
+
+        verifyNoInteractions(userService, campaignService, storageNodeRepository);
     }
 
     @Test void changeSortOrder_setsCorrectSortOrder()
@@ -152,6 +189,86 @@ class StorageNodeServiceTest {
         assertEquals("0.3", child3.getSortOrder());
     }
 
+    @Test void changeSortOrder_whileUserNotParticipant_returnsNull()
+    {
+        setAuthenticatedUser("testuser");
+
+        User user = User.builder().id(1).username("testuser").build();
+        Campaign campaign = Campaign.builder().id(10).participants(java.util.Map.of()).build();
+
+        UpdateStorageNodeRequest request = new UpdateStorageNodeRequest();
+        request.setId(101);
+        request.setSortOrder(0);
+
+        StorageNodeEntity child2 = new StorageNodeEntity();
+        child2.setId(101);
+        child2.setParentNode(new StorageNodeEntity());
+        child2.setCampaign(new CampaignEntity());
+        child2.setSortOrder("0.2");
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(storageNodeRepository.findById(101)).thenReturn(java.util.Optional.of(child2));
+        when(entityMapper.toDomain(any(CampaignEntity.class))).thenReturn(campaign);
+
+        StorageNode result = storageNodeService.changeSortOrder(request);
+        assertNull(result);
+        verify(storageNodeRepository, never()).save(any(StorageNodeEntity.class));
+    }
+
+    @Test void changeSortOrder_withDifferentParticipant_returnsNull()
+    {
+        setAuthenticatedUser("testuser");
+
+        User user = User.builder().id(1).username("testuser").build();
+        User otherUser = User.builder().id(2).username("otheruser").build();
+        Campaign campaign = Campaign.builder().id(10).participants(java.util.Map.of(otherUser, Role.PARTICIPANT)).build();
+
+        UpdateStorageNodeRequest request = new UpdateStorageNodeRequest();
+        request.setId(101);
+        request.setSortOrder(0);
+
+        StorageNodeEntity child2 = new StorageNodeEntity();
+        child2.setId(101);
+        child2.setParentNode(new StorageNodeEntity());
+        child2.setCampaign(new CampaignEntity());
+        child2.setSortOrder("0.2");
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(storageNodeRepository.findById(101)).thenReturn(java.util.Optional.of(child2));
+        when(entityMapper.toDomain(any(CampaignEntity.class))).thenReturn(campaign);
+
+        StorageNode result = storageNodeService.changeSortOrder(request);
+        assertNull(result);
+        verify(storageNodeRepository, never()).save(any(StorageNodeEntity.class));
+    }
+
+    @Test void changeSortOrder_withoutAuthentication_returnsNull()
+    {
+        UpdateStorageNodeRequest request = new UpdateStorageNodeRequest();
+        request.setId(101);
+        request.setSortOrder(0);
+
+        StorageNode result = storageNodeService.changeSortOrder(request);
+        assertNull(result);
+        verify(storageNodeRepository, never()).save(any(StorageNodeEntity.class));
+    }
+
+    @Test void changeSortOrder_withInvalidAuthentication_returnsNull()
+    {
+        setAuthenticatedUser("testuser");
+        when(authService.isAuthenticationValid(any())).thenReturn(false);
+
+        UpdateStorageNodeRequest request = new UpdateStorageNodeRequest();
+        request.setId(101);
+        request.setSortOrder(0);
+
+        StorageNode result = storageNodeService.changeSortOrder(request);
+        assertNull(result);
+        verify(storageNodeRepository, never()).save(any(StorageNodeEntity.class));
+    }
+
     @Test void createStorageNode_returnsNodeForAuthenticatedUser()
     {
         setAuthenticatedUser("testuser");
@@ -178,13 +295,16 @@ class StorageNodeServiceTest {
             entity.setId(200);
             return entity;
         });
-        when(entityMapper.toDomain(any(StorageNodeEntity.class))).thenReturn(
-                StorageNode.builder()
-                        .id(200)
-                        .campaign(campaign)
-                        .name("test")
-                        .isFolder(false)
-                        .build());
+        when(entityMapper.toDomain(any(StorageNodeEntity.class))).thenAnswer(invocation -> {
+            StorageNodeEntity entity = invocation.getArgument(0);
+            return StorageNode.builder()
+                    .id(200)
+                    .campaign(campaign)
+                    .name("test")
+                    .isFolder(false)
+                    .sortOrder(entity.getSortOrder())
+                    .build();
+        });
 
         StorageNode result = storageNodeService.createStorageNode(request);
         assertEquals(200, result.getId());
@@ -229,6 +349,306 @@ class StorageNodeServiceTest {
         StorageNode result = storageNodeService.createStorageNode(request);
 
         assertEquals("0.2", result.getSortOrder());
+    }
+
+    @Test void createStorageNode_returnsNodeWithParentNodeWithoutChildrenAndNoTargetIndex()
+    {
+        setAuthenticatedUser("testuser");
+
+        User user = User.builder().id(1).username("testuser").build();
+        Campaign campaign = Campaign.builder()
+                .id(10)
+                .participants(java.util.Map.of(user, Role.OWNER))
+                .build();
+
+        CreateStorageNodeRequest request = new CreateStorageNodeRequest();
+        request.setCampaignId(10);
+        request.setParentNodeId(20);
+        request.setName("test");
+        request.setFolder(false);
+
+        CampaignEntity campaignEntity = new CampaignEntity();
+        campaignEntity.setId(10);
+        StorageNodeEntity parentNode = new StorageNodeEntity();
+        parentNode.setId(20);
+        parentNode.setCampaign(campaignEntity);
+        parentNode.setFolder(true);
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(campaignService.getCampaign(10)).thenReturn(campaign);
+        when(storageNodeRepository.findById(20)).thenReturn(java.util.Optional.of(parentNode));
+        when(storageNodeRepository.findByParentNode_Id(20)).thenReturn(List.of());
+
+        when(storageNodeRepository.save(any(StorageNodeEntity.class))).thenAnswer(invocation -> {
+            StorageNodeEntity entity = invocation.getArgument(0);
+            entity.setId(200);
+            return entity;
+        });
+        when(entityMapper.toDomain(any(StorageNodeEntity.class))).thenAnswer(invocation -> {
+            StorageNodeEntity entity = invocation.getArgument(0);
+            return StorageNode.builder()
+                    .id(200)
+                    .campaign(campaign)
+                    .name("test")
+                    .isFolder(false)
+                    .sortOrder(entity.getSortOrder())
+                    .build();
+        });
+
+        StorageNode result = storageNodeService.createStorageNode(request);
+        assertEquals(200, result.getId());
+
+        verify(storageNodeRepository).save(any(StorageNodeEntity.class));
+    }
+
+    @Test void createStorageNode_returnsNodeWithLastChildSortOrderPointNine()
+    {
+        setAuthenticatedUser("testuser");
+
+        User user = User.builder().id(1).username("testuser").build();
+        Campaign campaign = Campaign.builder()
+                .id(10)
+                .participants(java.util.Map.of(user, Role.OWNER))
+                .build();
+
+        CreateStorageNodeRequest request = new CreateStorageNodeRequest();
+        request.setCampaignId(10);
+        request.setParentNodeId(20);
+        request.setName("test");
+        request.setFolder(false);
+
+        CampaignEntity campaignEntity = new CampaignEntity();
+        campaignEntity.setId(10);
+        StorageNodeEntity parentNode = new StorageNodeEntity();
+        parentNode.setId(20);
+        parentNode.setCampaign(campaignEntity);
+        parentNode.setFolder(true);
+
+        StorageNodeEntity childNode = new StorageNodeEntity();
+        childNode.setParentNode(parentNode);
+        childNode.setSortOrder("0.9");
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(campaignService.getCampaign(10)).thenReturn(campaign);
+        when(storageNodeRepository.findById(20)).thenReturn(java.util.Optional.of(parentNode));
+        when(storageNodeRepository.findByParentNode_Id(20)).thenReturn(List.of(childNode));
+
+        when(storageNodeRepository.save(any(StorageNodeEntity.class))).thenAnswer(invocation -> {
+            StorageNodeEntity entity = invocation.getArgument(0);
+            entity.setId(200);
+            return entity;
+        });
+        when(entityMapper.toDomain(any(StorageNodeEntity.class))).thenAnswer(invocation -> {
+            StorageNodeEntity entity = invocation.getArgument(0);
+            return StorageNode.builder()
+                    .id(200)
+                    .campaign(campaign)
+                    .name("test")
+                    .isFolder(false)
+                    .sortOrder(entity.getSortOrder())
+                    .build();
+        });
+
+        StorageNode result = storageNodeService.createStorageNode(request);
+        assertEquals(200, result.getId());
+        assertEquals("0.95", result.getSortOrder());
+        verify(storageNodeRepository).save(any(StorageNodeEntity.class));
+    }
+
+    @Test void createStorageNode_withExistingChildrenAndTargetIndexOne_returnsNodeWithSortOrderBetweenFirstAndSecondChild()
+    {
+        setAuthenticatedUser("testuser");
+
+        User user = User.builder().id(1).username("testuser").build();
+        Campaign campaign = Campaign.builder()
+                .id(10)
+                .participants(java.util.Map.of(user, Role.OWNER))
+                .build();
+
+        CreateStorageNodeRequest request = new CreateStorageNodeRequest();
+        request.setCampaignId(10);
+        request.setParentNodeId(20);
+        request.setName("test");
+        request.setFolder(false);
+        request.setSortOrder(1);
+
+        CampaignEntity campaignEntity = new CampaignEntity();
+        campaignEntity.setId(10);
+        StorageNodeEntity parentNode = new StorageNodeEntity();
+        parentNode.setId(20);
+        parentNode.setCampaign(campaignEntity);
+        parentNode.setFolder(true);
+
+        StorageNodeEntity childNode1 = new StorageNodeEntity();
+        childNode1.setParentNode(parentNode);
+        childNode1.setSortOrder("0.1");
+        StorageNodeEntity childNode2 = new StorageNodeEntity();
+        childNode2.setParentNode(parentNode);
+        childNode2.setSortOrder("0.2");
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(campaignService.getCampaign(10)).thenReturn(campaign);
+        when(storageNodeRepository.findById(20)).thenReturn(java.util.Optional.of(parentNode));
+        when(storageNodeRepository.findByParentNode_Id(20)).thenReturn(List.of(childNode1, childNode2));
+
+        when(storageNodeRepository.save(any(StorageNodeEntity.class))).thenAnswer(invocation -> {
+            StorageNodeEntity entity = invocation.getArgument(0);
+            entity.setId(200);
+            return entity;
+        });
+        when(entityMapper.toDomain(any(StorageNodeEntity.class))).thenAnswer(invocation -> {
+            StorageNodeEntity entity = invocation.getArgument(0);
+            return StorageNode.builder()
+                    .id(200)
+                    .campaign(campaign)
+                    .name("test")
+                    .isFolder(false)
+                    .sortOrder(entity.getSortOrder())
+                    .build();
+        });
+
+        StorageNode result = storageNodeService.createStorageNode(request);
+        assertEquals(200, result.getId());
+        assertEquals("0.15", result.getSortOrder());
+        verify(storageNodeRepository).save(any(StorageNodeEntity.class));
+    }
+
+    @Test void createStorageNode_withExistingChildrenWithTheSameSortOrder_returnsNodeWithSortOrderPlusDecimal()
+    {
+        setAuthenticatedUser("testuser");
+
+        User user = User.builder().id(1).username("testuser").build();
+        Campaign campaign = Campaign.builder()
+                .id(10)
+                .participants(java.util.Map.of(user, Role.OWNER))
+                .build();
+
+        CreateStorageNodeRequest request = new CreateStorageNodeRequest();
+        request.setCampaignId(10);
+        request.setParentNodeId(20);
+        request.setName("test");
+        request.setFolder(false);
+        request.setSortOrder(1);
+
+        CampaignEntity campaignEntity = new CampaignEntity();
+        campaignEntity.setId(10);
+        StorageNodeEntity parentNode = new StorageNodeEntity();
+        parentNode.setId(20);
+        parentNode.setCampaign(campaignEntity);
+        parentNode.setFolder(true);
+
+        StorageNodeEntity childNode1 = new StorageNodeEntity();
+        childNode1.setParentNode(parentNode);
+        childNode1.setSortOrder("0.1");
+        StorageNodeEntity childNode2 = new StorageNodeEntity();
+        childNode2.setParentNode(parentNode);
+        childNode2.setSortOrder("0.1");
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(campaignService.getCampaign(10)).thenReturn(campaign);
+        when(storageNodeRepository.findById(20)).thenReturn(java.util.Optional.of(parentNode));
+        when(storageNodeRepository.findByParentNode_Id(20)).thenReturn(List.of(childNode1, childNode2));
+
+        when(storageNodeRepository.save(any(StorageNodeEntity.class))).thenAnswer(invocation -> {
+            StorageNodeEntity entity = invocation.getArgument(0);
+            entity.setId(200);
+            return entity;
+        });
+        when(entityMapper.toDomain(any(StorageNodeEntity.class))).thenAnswer(invocation -> {
+            StorageNodeEntity entity = invocation.getArgument(0);
+            return StorageNode.builder()
+                    .id(200)
+                    .campaign(campaign)
+                    .name("test")
+                    .isFolder(false)
+                    .sortOrder(entity.getSortOrder())
+                    .build();
+        });
+
+        StorageNode result = storageNodeService.createStorageNode(request);
+        assertEquals(200, result.getId());
+        assertEquals("0.6", result.getSortOrder());
+        verify(storageNodeRepository).save(any(StorageNodeEntity.class));
+    }
+
+    @Test void createStorageNode_withInvalidTargetIndexWithNoChildren_ReturnsNull()
+    {
+        setAuthenticatedUser("testuser");
+
+        User user = User.builder().id(1).username("testuser").build();
+        Campaign campaign = Campaign.builder()
+                .id(10)
+                .participants(java.util.Map.of(user, Role.OWNER))
+                .build();
+
+        CreateStorageNodeRequest request = new CreateStorageNodeRequest();
+        request.setCampaignId(10);
+        request.setParentNodeId(20);
+        request.setName("test");
+        request.setFolder(false);
+        request.setSortOrder(-1);
+
+        CampaignEntity campaignEntity = new CampaignEntity();
+        campaignEntity.setId(10);
+        StorageNodeEntity parentNode = new StorageNodeEntity();
+        parentNode.setId(20);
+        parentNode.setCampaign(campaignEntity);
+        parentNode.setFolder(true);
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(campaignService.getCampaign(10)).thenReturn(campaign);
+        when(storageNodeRepository.findById(20)).thenReturn(java.util.Optional.of(parentNode));
+        when(storageNodeRepository.findByParentNode_Id(20)).thenReturn(List.of());
+
+        StorageNode result = storageNodeService.createStorageNode(request);
+
+        assertNull(result);
+        verify(storageNodeRepository, never()).save(any(StorageNodeEntity.class));
+    }
+
+    @Test void createStorageNode_withTargetIndexOutsideChildren_returnsNull()
+    {
+        setAuthenticatedUser("testuser");
+
+        User user = User.builder().id(1).username("testuser").build();
+        Campaign campaign = Campaign.builder()
+                .id(10)
+                .participants(java.util.Map.of(user, Role.OWNER))
+                .build();
+
+        CreateStorageNodeRequest request = new CreateStorageNodeRequest();
+        request.setCampaignId(10);
+        request.setParentNodeId(20);
+        request.setName("test");
+        request.setFolder(false);
+        request.setSortOrder(2);
+
+        CampaignEntity campaignEntity = new CampaignEntity();
+        campaignEntity.setId(10);
+        StorageNodeEntity parentNode = new StorageNodeEntity();
+        parentNode.setId(20);
+        parentNode.setCampaign(campaignEntity);
+        parentNode.setFolder(true);
+
+        StorageNodeEntity childNode = new StorageNodeEntity();
+        childNode.setParentNode(parentNode);
+        childNode.setSortOrder("0.1");
+
+        when(authService.isAuthenticationValid(any())).thenReturn(true);
+        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(campaignService.getCampaign(10)).thenReturn(campaign);
+        when(storageNodeRepository.findById(20)).thenReturn(java.util.Optional.of(parentNode));
+        when(storageNodeRepository.findByParentNode_Id(20)).thenReturn(List.of(childNode));
+
+        StorageNode result = storageNodeService.createStorageNode(request);
+
+        assertNull(result);
+        verify(storageNodeRepository, never()).save(any(StorageNodeEntity.class));
     }
 
     @Test void createStorageNode_whileUserNotParticipant_returnsNull()

@@ -1,5 +1,7 @@
 package com.fhict.campaignmanager.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import com.fhict.campaignmanager.domain.Campaign;
 import com.fhict.campaignmanager.domain.StorageNode;
 import com.fhict.campaignmanager.domain.User;
@@ -91,72 +93,22 @@ public class StorageNodeService implements INodeService{
         if (request.getParentNodeId() != null) {
             StorageNodeEntity parentNode = storageNodeRepository.findById(request.getParentNodeId()).orElse(null);
             if (parentNode == null
-                    || parentNode.isFolder() == false
+                    || !parentNode.isFolder()
                     || parentNode.getCampaign() == null
                     || parentNode.getCampaign().getId() != request.getCampaignId()) {
                 return null;
             }
             //check if parent has existing children
             List<StorageNodeEntity> children = storageNodeRepository.findByParentNode_Id(request.getParentNodeId());
-            if (children != null && children.isEmpty() == false) {
-                //check if sort order is provided
-                if(request.getSortOrder() != null)
-                {
-                    //check if the sort order is within the bounds of the children
-                    if(request.getSortOrder() < 0 || request.getSortOrder() >= children.size()) {
-                        return null;
-                    }
-                    //check if the sort order is the first in the list, if so set the sort order to half of the first child's sort order
-                    if(request.getSortOrder() == 0) {
-                        double firstChildSortOrder = Double.parseDouble(children.get(0).getSortOrder());
-                        entity.setSortOrder(String.valueOf(firstChildSortOrder / 2));
-                    }
-                    //check if the sort order is the last in the list, if so set the sort order to 0.1 more than the last child's sort order
-                    else if(request.getSortOrder() == children.size() - 1) {
-                        double lastChildSortOrder = Double.parseDouble(children.get(children.size() - 1).getSortOrder());
-                        //check if the last child's sort order is >= 0.9, if so set it to the average of the last child's sort order and 1
-                        if(lastChildSortOrder >= 0.9) {
-                            entity.setSortOrder(String.valueOf((lastChildSortOrder + 1) / 2));
-                        }
-                        entity.setSortOrder(String.valueOf(lastChildSortOrder + 0.1));
-                    }
-                    //get the average sort order of the children before and after the provided sort order
-                    String sortOrderBefore = children.get(request.getSortOrder() - 1).getSortOrder();
-                    String sortOrderAfter = children.get(request.getSortOrder() + 1).getSortOrder();
-                    //set the sort order of the new node to the average of the two
-                    double avg = (Double.parseDouble(sortOrderBefore) + Double.parseDouble(sortOrderAfter)) / 2;
-                    entity.setSortOrder(String.valueOf(avg));
-                    //if the average is equal to one of the two, set the sort order to the average of the two and 1 more decimal place
-                    if(entity.getSortOrder().equals(sortOrderBefore) || entity.getSortOrder().equals(sortOrderAfter))
-                    {
-                        entity.setSortOrder(String.valueOf(avg + 0.5));
-                    }
-                }
-                    else
-                    {
-                        //if no sort order is provided, set the sort order to the next highest decimal place based on the previous sibling's sort order
-                        double previousSiblingSortOrder = Double.parseDouble(children.getLast().getSortOrder());
-                        if(previousSiblingSortOrder >= 0.9) {
-                            double newSortOrder = previousSiblingSortOrder + 1;
-                            newSortOrder = newSortOrder / 2;
-                            entity.setSortOrder(String.valueOf(newSortOrder));
-                        }
-                        else {
-                            entity.setSortOrder(String.valueOf(previousSiblingSortOrder + 0.1));
-                        }
-                    }
+            if (!setSortOrder(entity, children, request.getSortOrder())) {
+                return null;
             }
-                else {
-                    //if no children exist, set the sort order to 0.1
-                    entity.setSortOrder("0.1");
-                }
-
-            }
+        }
 
         if (request.getParentNodeId() != null) {
             StorageNodeEntity parentNode = storageNodeRepository.findById(request.getParentNodeId()).orElse(null);
             if (parentNode == null
-                    || parentNode.isFolder() == false
+                    || !parentNode.isFolder()
                     || parentNode.getCampaign() == null
                     || parentNode.getCampaign().getId() != request.getCampaignId()) {
                 return null;
@@ -186,29 +138,61 @@ public class StorageNodeService implements INodeService{
                 getStorageNode(request.getId()).getParentNode().getId()));
         children.sort(Comparator.comparingDouble(child -> Double.parseDouble(child.getSortOrder())));
 
-        // The requested sort order is the zero-based target index in the final child list.
-        if(request.getSortOrder() < 0 || request.getSortOrder() >= children.size()) {
+        children.removeIf(child -> child.getId() == entity.getId());
+        if (!setSortOrder(entity, children, request.getSortOrder())) {
             return null;
         }
-        children.removeIf(child -> child.getId() == entity.getId());
-        if(request.getSortOrder() == 0) {
-            double firstChildSortOrder = Double.parseDouble(children.get(0).getSortOrder());
-            entity.setSortOrder(String.valueOf(firstChildSortOrder / 2));
-        }
-        else if(request.getSortOrder() == children.size()) {
-            double lastChildSortOrder = Double.parseDouble(children.get(children.size() - 1).getSortOrder());
-            if(lastChildSortOrder >= 0.9) {
-                lastChildSortOrder = (lastChildSortOrder + 1) / 2;
-            }
-            entity.setSortOrder(String.valueOf(lastChildSortOrder + 0.1));
-        }
-        else {
-            String sortOrderBefore = children.get(request.getSortOrder() - 1).getSortOrder();
-            String sortOrderAfter = children.get(request.getSortOrder()).getSortOrder();
-            double avg = (Double.parseDouble(sortOrderBefore) + Double.parseDouble(sortOrderAfter)) / 2;
-            entity.setSortOrder(String.valueOf(avg));
-        }
         return entityMapper.toDomain(storageNodeRepository.save(entity));
+    }
+
+    private boolean setSortOrder(StorageNodeEntity entity, List<StorageNodeEntity> children,
+                                 Integer targetIndex) {
+        //if no siblings, set sort order to 0.1 and return true if targetIndex is null or 0
+        if (children == null || children.isEmpty()) {
+            entity.setSortOrder("0.1");
+            return targetIndex == null || targetIndex == 0;
+        }
+        //if targetIndex is null, set it to the end of the list
+        if (targetIndex == null) {
+            targetIndex = children.size();
+        }
+        //check if targetIndex is within bounds
+        if (targetIndex < 0 || targetIndex > children.size()) {
+            return false;
+        }
+        if (targetIndex == 0) {
+            double firstChildSortOrder = Double.parseDouble(children.get(0).getSortOrder());
+            entity.setSortOrder(formatSortOrder(firstChildSortOrder / 2));
+            return true;
+        }
+        if (targetIndex == children.size()) {
+            double lastChildSortOrder = Double.parseDouble(children.get(targetIndex - 1).getSortOrder());
+            if (lastChildSortOrder >= 0.9) {
+                entity.setSortOrder(formatSortOrder((lastChildSortOrder + 1) / 2));
+            } else {
+                entity.setSortOrder(formatSortOrder(lastChildSortOrder + 0.1));
+            }
+            return true;
+        }
+
+        //calculate average of sort order of the two children at targetIndex - 1 and targetIndex
+        String sortOrderBefore = children.get(targetIndex - 1).getSortOrder();
+        String sortOrderAfter = children.get(targetIndex).getSortOrder();
+        double average = (Double.parseDouble(sortOrderBefore)
+                + Double.parseDouble(sortOrderAfter)) / 2;
+        entity.setSortOrder(formatSortOrder(average));
+        if (entity.getSortOrder().equals(sortOrderBefore)
+                || entity.getSortOrder().equals(sortOrderAfter)) {
+            entity.setSortOrder(formatSortOrder(average + 0.5));
+        }
+        return true;
+    }
+
+    private String formatSortOrder(double sortOrder) {
+        return BigDecimal.valueOf(sortOrder)
+                .setScale(10, RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString();
     }
 
     public StorageNode updateStorageNode(UpdateStorageNodeRequest request)
