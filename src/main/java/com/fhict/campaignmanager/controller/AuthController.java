@@ -6,7 +6,6 @@ import com.fhict.campaignmanager.dto.LoginRequest;
 import com.fhict.campaignmanager.dto.LoginResponse;
 import com.fhict.campaignmanager.service.IAuthService;
 import com.fhict.campaignmanager.service.IUserService;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,7 +20,6 @@ public class AuthController {
         this.userService = userService;
     }
 
-    @CrossOrigin
     @PostMapping("/api/auth/login")
     public LoginResponse login(@RequestBody LoginRequest loginRequest)
     {
@@ -36,7 +34,6 @@ public class AuthController {
                 .build();
     }
 
-    @CrossOrigin
     @PostMapping("/api/auth/register")
     public LoginResponse register(@RequestBody CreateUserRequest createUserRequest)
     {

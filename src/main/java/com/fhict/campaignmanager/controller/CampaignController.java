@@ -28,13 +28,11 @@ public class CampaignController {
         this.inviteMapper = inviteMapper;
     }
 
-    @CrossOrigin
     @PostMapping
     public CampaignResponse createCampaign(@RequestBody CreateCampaignRequest createCampaignRequest) {
         return campaignMapper.toCampaignResponse(campaignService.createCampaign(createCampaignRequest));
     }
 
-    @CrossOrigin
     @GetMapping("/{id}")
     public CampaignResponse getCampaign(@PathVariable int id) {
         CampaignResponse campaign = campaignMapper.toCampaignResponse(campaignService.getCampaign(id));
@@ -46,7 +44,6 @@ public class CampaignController {
         return campaign;
     }
 
-    @CrossOrigin
     @GetMapping
     public List<CampaignResponse> getCampaigns() {
         List<Campaign> campaigns = campaignService.getAllCampaignsFromUser();
@@ -58,27 +55,23 @@ public class CampaignController {
                 .toList();
     }
 
-    @CrossOrigin
     @PutMapping("/{id}/participants/{userId}/role")
     public CampaignResponse updateParticipantRole(@PathVariable int id, @PathVariable int userId, @RequestParam String role) {
         return campaignMapper.toCampaignResponse(
                 campaignService.updateParticipantRole(id, userId, role));
     }
 
-    @CrossOrigin
     @PutMapping("/{id}/participants/{userId}")
     public void removeParticipant(@PathVariable int id, @PathVariable int userId) {
         campaignService.removeParticipant(id, userId);
     }
 
-    @CrossOrigin
     @PutMapping("/{id}")
     public CampaignResponse updateCampaign(@PathVariable int id, @RequestBody UpdateCampaignRequest updateCreateCampaignRequest) {
         return campaignMapper.toCampaignResponse(
                 campaignService.updateCampaign(id, updateCreateCampaignRequest));
     }
 
-    @CrossOrigin
     @DeleteMapping("/{id}")
     public void deleteCampaign(@PathVariable int id) {
         campaignService.deleteCampaign(id);
