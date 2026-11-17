@@ -21,28 +21,24 @@ public class InviteController {
         this.inviteMapper = inviteMapper;
     }
 
-    @CrossOrigin
     @PostMapping
     public void sendInvite(@RequestBody CreateInviteRequest inviteRequest)
     {
         inviteService.sendInvite(inviteRequest);
     }
 
-    @CrossOrigin
     @GetMapping("/{id}")
     public InviteResponse getInvite(@PathVariable int id)
     {
         return inviteMapper.toInviteResponse(inviteService.getInvite(id));
     }
 
-    @CrossOrigin
     @GetMapping
     public List<InviteResponse> getAllInvites()
     {
         return toInviteResponses(inviteService.getAllInvitesForUser());
     }
 
-    @CrossOrigin
     @GetMapping("/campaigns/{id}")
     public List<InviteResponse> getAllInvitesForCampaign(@PathVariable int id) {
         return toInviteResponses(inviteService.getAllInvitesForCampaign(id));
@@ -57,19 +53,16 @@ public class InviteController {
                 .toList();
     }
 
-    @CrossOrigin
     @PostMapping("/{id}/accept")
     public void acceptInvite(@PathVariable int id) {
         inviteService.acceptInvite(id);
     }
 
-    @CrossOrigin
     @PostMapping("/{id}/decline")
     public void declineInvite(@PathVariable int id) {
         inviteService.declineInvite(id);
     }
 
-    @CrossOrigin
     @PostMapping("/{id}/revoke")
     public void revokeInvite(@PathVariable int id) {
         inviteService.revokeInvite(id);

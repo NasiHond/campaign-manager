@@ -30,7 +30,6 @@ public class UserController {
         this.authService = authService;
     }
 
-    @CrossOrigin
     @PostMapping
     public LoginResponse createUser(@RequestBody CreateUserRequest createUserRequest)
     {
@@ -40,7 +39,6 @@ public class UserController {
         return authMapper.toLoginResponse(token, 3600, "Bearer");
     }
 
-    @CrossOrigin
     @GetMapping("/{id}")
     public UserResponse getUser(@PathVariable int id)
     {
@@ -48,7 +46,6 @@ public class UserController {
         return userMapper.toUserResponse(userService.getUser(id));
     }
 
-    @CrossOrigin
     @PutMapping("/{id}")
     public UserResponse updateUser(@PathVariable int id, @RequestBody UpdateUserRequest updateUserRequest)
     {
@@ -56,7 +53,6 @@ public class UserController {
         return userMapper.toUserResponse(userService.updateUser(id, updateUserRequest));
     }
 
-    @CrossOrigin
     @DeleteMapping("/{id}")
     public void deleteUser(@PathVariable int id)
     {
