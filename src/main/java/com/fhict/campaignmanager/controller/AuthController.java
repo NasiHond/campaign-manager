@@ -45,6 +45,9 @@ public class AuthController {
     public LoginResponse register(@RequestBody CreateUserRequest createUserRequest)
     {
         User createdUser = userService.createUser(createUserRequest);
+        if (createdUser == null) {
+            return null;
+        }
         String token = authService.createToken(createdUser);
         return LoginResponse.builder()
                 .accessToken(token)
