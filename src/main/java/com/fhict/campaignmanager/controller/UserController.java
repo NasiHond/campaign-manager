@@ -9,8 +9,6 @@ import com.fhict.campaignmanager.mapper.AuthMapper;
 import com.fhict.campaignmanager.mapper.UserMapper;
 import com.fhict.campaignmanager.service.UserService;
 import com.fhict.campaignmanager.service.IAuthService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -21,7 +19,6 @@ public class UserController {
     private final UserMapper userMapper;
     private final AuthMapper authMapper;
     private final IAuthService authService;
-    private static final Logger LOGGER = LoggerFactory.getLogger(UserController.class);
 
     public UserController(UserService userService, UserMapper userMapper, AuthMapper authMapper, IAuthService authService) {
         this.userService = userService;
@@ -33,30 +30,31 @@ public class UserController {
     @PostMapping
     public LoginResponse createUser(@RequestBody CreateUserRequest createUserRequest)
     {
-        LOGGER.info("Received request to create user with username: {}", createUserRequest.getUsername());
         User createdUser = userService.createUser(createUserRequest);
         String token = authService.createToken(createdUser);
-        return authMapper.toLoginResponse(token, 3600, "Bearer");
+        return authMapper.toLoginResponse(
+                token,
+                3600,
+                "Bearer",
+                userMapper.toUserResponse(createdUser)
+        );
     }
 
     @GetMapping("/{id}")
     public UserResponse getUser(@PathVariable int id)
     {
-        LOGGER.info("Received request to get user with id: {}", id);
         return userMapper.toUserResponse(userService.getUser(id));
     }
 
     @PutMapping("/{id}")
     public UserResponse updateUser(@PathVariable int id, @RequestBody UpdateUserRequest updateUserRequest)
     {
-        LOGGER.info("Received request to update user with id: {}", id);
         return userMapper.toUserResponse(userService.updateUser(id, updateUserRequest));
     }
 
     @DeleteMapping("/{id}")
     public void deleteUser(@PathVariable int id)
     {
-        LOGGER.info("Received request to delete user with id: {}", id);
         userService.deleteUser(id);
     }
 }

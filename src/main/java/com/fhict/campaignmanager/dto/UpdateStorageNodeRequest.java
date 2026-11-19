@@ -10,6 +10,5 @@ import lombok.*;
 public class UpdateStorageNodeRequest {
     private int id;
     private String name;
-    private Boolean isFolder;
     private int sortOrder;
 }
