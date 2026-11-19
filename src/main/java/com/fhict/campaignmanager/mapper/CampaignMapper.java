@@ -6,6 +6,12 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CampaignMapper {
+    private final UserMapper userMapper;
+
+    public CampaignMapper(UserMapper userMapper) {
+        this.userMapper = userMapper;
+    }
+
     public CampaignResponse toCampaignResponse(Campaign campaign) {
         if (campaign == null) {
             return null;
@@ -15,7 +21,7 @@ public class CampaignMapper {
                 .id(campaign.getId())
                 .name(campaign.getName())
                 .description(campaign.getDescription())
-                .participants(campaign.getParticipants())
+                .participants(userMapper.toUserResponse(campaign.getParticipants()))
                 .ownerId(campaign.getParticipants() == null
                         ? null
                         : campaign.getParticipants().entrySet().stream()

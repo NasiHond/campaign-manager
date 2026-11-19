@@ -212,7 +212,6 @@ public class StorageNodeService implements INodeService{
             return null;
         }
         entity.setName(request.getName());
-        entity.setFolder(request.getIsFolder());
         return entityMapper.toDomain(storageNodeRepository.save(entity));
     }
 

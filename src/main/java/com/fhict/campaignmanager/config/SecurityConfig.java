@@ -49,6 +49,7 @@ public class SecurityConfig {
 
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
+                "http://localhost:5174",
                 "http://localhost:4173",
                 "https://campaign-manager-nasihond-fe-9bc5c758955c.herokuapp.com"
         ));
