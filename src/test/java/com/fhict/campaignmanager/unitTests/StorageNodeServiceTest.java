@@ -781,7 +781,6 @@ class StorageNodeServiceTest {
         UpdateStorageNodeRequest request = new UpdateStorageNodeRequest();
         request.setId(20);
         request.setName("updated test");
-        request.setIsFolder(false);
 
         Campaign campaign = Campaign.builder().id(10).participants(java.util.Map.of(user, Role.OWNER)).build();
         when(authService.isAuthenticationValid(any())).thenReturn(true);
@@ -820,7 +819,6 @@ class StorageNodeServiceTest {
         UpdateStorageNodeRequest request = new UpdateStorageNodeRequest();
         request.setId(20);
         request.setName("updated test");
-        request.setIsFolder(false);
 
         Campaign campaign = Campaign.builder().id(10).participants(java.util.Map.of()).build();
         when(authService.isAuthenticationValid(any())).thenReturn(true);
@@ -844,7 +842,6 @@ class StorageNodeServiceTest {
         UpdateStorageNodeRequest request = new UpdateStorageNodeRequest();
         request.setId(20);
         request.setName("updated test");
-        request.setIsFolder(false);
 
         StorageNode result = storageNodeService.updateStorageNode(request);
         assertNull(result);
@@ -859,7 +856,6 @@ class StorageNodeServiceTest {
         UpdateStorageNodeRequest request = new UpdateStorageNodeRequest();
         request.setId(20);
         request.setName(null);
-        request.setIsFolder(false);
 
         Campaign campaign = Campaign.builder().id(10).participants(java.util.Map.of()).build();
 
@@ -881,9 +877,9 @@ class StorageNodeServiceTest {
 
     @Test void deleteStorageNode_returnsTrueForAuthenticatedUser()
     {
-        setAuthenticatedUser("testuser");
+        setAuthenticatedUser("aUser");
 
-        User user = User.builder().id(1).username("testuser").build();
+        User user = User.builder().id(1).username("aUser").build();
         Campaign campaign = Campaign.builder()
                 .id(10)
                 .participants(java.util.Map.of(user, Role.PARTICIPANT))
@@ -891,7 +887,7 @@ class StorageNodeServiceTest {
         CampaignEntity campaignEntity = new CampaignEntity();
 
         when(authService.isAuthenticationValid(any())).thenReturn(true);
-        when(userService.getUserByUsername("testuser")).thenReturn(user);
+        when(userService.getUserByUsername("aUser")).thenReturn(user);
         StorageNodeEntity storageNode = new StorageNodeEntity();
         storageNode.setCampaign(campaignEntity);
         when(storageNodeRepository.findById(100)).thenReturn(java.util.Optional.of(storageNode));
